@@ -4,10 +4,14 @@ import { Project, mockProjects } from "@/data/mockData";
 import { Sidebar } from "./Sidebar";
 import { ProjectTabs } from "./ProjectTabs";
 import { ThemeToggle } from "./ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { logout } from "@/pages/Login";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderOpen, TrendingUp, Clock, AlertCircle, Loader2 } from "lucide-react";
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [selectedProject, setSelectedProject] = useState<Project | null>(
     mockProjects.length > 0 ? mockProjects[0] : null
@@ -89,7 +93,19 @@ export function Dashboard() {
                 Optimize your procurement with intelligent insights and automation
               </p>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  logout();
+                  navigate("/", { replace: true });
+                }}
+              >
+                Logout
+              </Button>
+            </div>
           </div>
         </header>
 
