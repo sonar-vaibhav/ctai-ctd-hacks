@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, DollarSign, MapPin, Building } from "lucide-react";
+import { Calendar, IndianRupee, MapPin, Building } from "lucide-react";
 import { Project } from "@/data/mockData";
 import { format } from "date-fns";
 
@@ -28,11 +28,10 @@ export function ProjectCard({ project, isSelected, onClick }: ProjectCardProps) 
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`w-full text-left p-4 rounded-lg border transition-all duration-200 ${
-        isSelected
+      className={`w-full text-left p-4 rounded-lg border transition-all duration-200 ${isSelected
           ? 'border-primary bg-primary/5 shadow-md'
           : 'border-border hover:border-primary/50 hover:bg-muted/50'
-      }`}
+        }`}
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between">
@@ -41,23 +40,23 @@ export function ProjectCard({ project, isSelected, onClick }: ProjectCardProps) 
             {project.status}
           </span>
         </div>
-        
+
         <div className="space-y-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <Building className="h-3 w-3" />
             <span>{project.type}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <MapPin className="h-3 w-3" />
-            <span>{project.region}</span>
+            <span>{project.city}, {project.state}</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <DollarSign className="h-3 w-3" />
-            <span>${(project.volume / 1000000).toFixed(1)}M</span>
+            <IndianRupee className="h-3 w-3" />
+            <span>₹{(project.volume / 10000000).toFixed(1)} Cr</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Calendar className="h-3 w-3" />
             <span>Created {format(project.createdAt, 'MMM dd, yyyy')}</span>

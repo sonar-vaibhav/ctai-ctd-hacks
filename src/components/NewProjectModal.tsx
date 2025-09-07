@@ -30,7 +30,8 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
     name: '',
     type: '',
     size: '',
-    region: '',
+    state: '',
+    city: '',
     volume: '',
     status: 'planning' as const,
   });
@@ -46,24 +47,26 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
   ];
 
   const projectSizes = [
-    'Small (<$1M)',
-    'Medium ($1M-$10M)',
-    'Large (>$10M)',
+    'Small (<₹1Cr)',
+    'Medium (₹1Cr–₹10Cr)',
+    'Large (>₹10Cr)',
   ];
 
-  const regions = [
-    'North America',
-    'South America',
-    'Europe',
-    'Asia Pacific',
-    'Middle East',
-    'Africa',
+  const indianStates = [
+    'Maharashtra',
+    'Karnataka',
+    'Tamil Nadu',
+    'Gujarat',
+    'Delhi',
+    'Uttar Pradesh',
+    'Telangana',
+    'West Bengal',
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name || !formData.type || !formData.size || !formData.region || !formData.volume) {
+
+    if (!formData.name || !formData.type || !formData.size || !formData.state || !formData.city || !formData.volume) {
       return;
     }
 
@@ -71,7 +74,8 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
       name: formData.name,
       type: formData.type,
       size: formData.size,
-      region: formData.region,
+      state: formData.state,
+      city: formData.city,
       volume: parseInt(formData.volume),
       status: formData.status,
     });
@@ -81,11 +85,12 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
       name: '',
       type: '',
       size: '',
-      region: '',
+      state: '',
+      city: '',
       volume: '',
       status: 'planning',
     });
-    
+
     setIsOpen(false);
   };
 
@@ -96,20 +101,20 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button 
+        <Button
           className="w-full gradient-button gap-2 h-11 shadow-lg hover:shadow-xl transition-all duration-200"
         >
           <Plus className="h-4 w-4" />
           New Project
         </Button>
       </DialogTrigger>
-      
+
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Create New Project</DialogTitle>
         </DialogHeader>
-        
-        <motion.form 
+
+        <motion.form
           onSubmit={handleSubmit}
           className="space-y-6"
           initial={{ opacity: 0, y: 20 }}
@@ -162,15 +167,15 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="region">Region</Label>
-                <Select value={formData.region} onValueChange={(value) => handleInputChange('region', value)}>
+                <Label htmlFor="state">State</Label>
+                <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select region" />
+                    <SelectValue placeholder="Select state" />
                   </SelectTrigger>
                   <SelectContent>
-                    {regions.map((region) => (
-                      <SelectItem key={region} value={region}>
-                        {region}
+                    {indianStates.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -179,7 +184,18 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="volume">Estimated Volume ($)</Label>
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                placeholder="Enter city"
+                value={formData.city}
+                onChange={(e) => handleInputChange('city', e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="volume">Estimated Volume (₹)</Label>
               <Input
                 id="volume"
                 type="number"

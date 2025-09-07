@@ -53,10 +53,10 @@ export function Sidebar({ projects, selectedProject, onSelectProject, onCreatePr
                 animate={{ opacity: 1, x: 0 }}
                 className="text-lg font-semibold"
               >
-                ProcureAI
+                ProcureAI India
               </motion.div>
             </div>
-            
+
             <Button
               variant="ghost"
               size="icon"
@@ -80,7 +80,7 @@ export function Sidebar({ projects, selectedProject, onSelectProject, onCreatePr
                 <h3 className="text-sm font-medium text-muted-foreground">Projects</h3>
               </div>
             </div>
-            
+
             <div className="px-6 pb-6 overflow-y-auto max-h-[calc(100vh-280px)]">
               <div className="space-y-3">
                 <AnimatePresence mode="popLayout">
@@ -100,7 +100,7 @@ export function Sidebar({ projects, selectedProject, onSelectProject, onCreatePr
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                
+
                 {projects.length === 0 && (
                   <motion.div
                     initial={{ opacity: 0 }}

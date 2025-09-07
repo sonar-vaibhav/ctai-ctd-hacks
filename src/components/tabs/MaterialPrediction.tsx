@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Project, mockMaterials } from "@/data/mockData";
-import { Package, DollarSign, TrendingUp, Activity } from "lucide-react";
+import { Package, IndianRupee, TrendingUp, Activity } from "lucide-react";
 
 interface MaterialPredictionProps {
   project: Project;
@@ -17,7 +17,7 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
   const barChartData = mockMaterials.map(material => ({
     name: material.name.split(' ')[0], // Shortened names for chart
     quantity: material.quantity,
-    cost: material.cost / 1000, // Convert to thousands
+    cost: material.cost / 100000, // Convert to lakhs
   }));
 
   const pieChartData = mockMaterials.map((material, index) => ({
@@ -28,7 +28,7 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
 
   const chartConfig = {
     quantity: { label: "Quantity", color: "hsl(var(--primary))" },
-    cost: { label: "Cost (K$)", color: "hsl(var(--secondary))" },
+    cost: { label: "Cost (₹ Lakhs)", color: "hsl(var(--secondary))" },
   };
 
   return (
@@ -81,10 +81,10 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
           <Card className="dashboard-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <IndianRupee className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(totalCost / 1000000).toFixed(2)}M</div>
+              <div className="text-2xl font-bold">₹{(totalCost / 10000000).toFixed(2)} Cr</div>
               <p className="text-xs text-muted-foreground">Estimated procurement cost</p>
             </CardContent>
           </Card>
@@ -101,7 +101,7 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${Math.round(totalCost / totalQuantity)}</div>
+              <div className="text-2xl font-bold">₹{Math.round(totalCost / totalQuantity).toLocaleString('en-IN')}</div>
               <p className="text-xs text-muted-foreground">Per unit average</p>
             </CardContent>
           </Card>
@@ -142,8 +142,8 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
@@ -214,7 +214,7 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
                     <th>Category</th>
                     <th>Quantity</th>
                     <th>Unit</th>
-                    <th>Cost</th>
+                    <th>Cost (₹)</th>
                     <th>% of Total</th>
                   </tr>
                 </thead>
@@ -235,7 +235,7 @@ export function MaterialPrediction({ project, showPredictionResults = false }: M
                       </td>
                       <td>{material.quantity.toLocaleString()}</td>
                       <td>{material.unit}</td>
-                      <td>${material.cost.toLocaleString()}</td>
+                      <td>₹{material.cost.toLocaleString('en-IN')}</td>
                       <td>{((material.cost / totalCost) * 100).toFixed(1)}%</td>
                     </motion.tr>
                   ))}

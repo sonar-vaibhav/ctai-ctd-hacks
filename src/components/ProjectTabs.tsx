@@ -15,7 +15,9 @@ interface ProjectTabsProps {
 
 export function ProjectTabs({ project }: ProjectTabsProps) {
   const [predictionCompleted, setPredictionCompleted] = useState(false);
-  const tabs = [
+  const [activeTab, setActiveTab] = useState<string>("input");
+
+  const allTabs = [
     { id: "input", label: "Input Form", component: InputForm },
     { id: "prediction", label: "Material Prediction", component: MaterialPrediction },
     { id: "vendors", label: "Vendors", component: VendorsTab },
@@ -23,6 +25,11 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
     { id: "schedule", label: "Project Schedule", component: ProjectSchedule },
     { id: "chatbot", label: "AI Assistant", component: ChatbotPanel },
   ];
+
+  // Hide Input tab after prediction is completed
+  const visibleTabs = predictionCompleted
+    ? allTabs.filter((t) => t.id !== "input")
+    : allTabs;
 
   return (
     <motion.div
@@ -36,22 +43,21 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
           <div>
             <h1 className="text-2xl font-bold">{project.name}</h1>
             <p className="text-muted-foreground text-sm">
-              {project.type} • {project.region} • ${(project.volume / 1000000).toFixed(1)}M
+              {project.type} • {project.city}, {project.state} • ₹{(project.volume / 10000000).toFixed(1)} Cr
             </p>
           </div>
-          <div className={`px-3 py-1 rounded-full text-xs font-medium status-badge ${
-            project.status === 'active' ? 'status-success' :
+          <div className={`px-3 py-1 rounded-full text-xs font-medium status-badge ${project.status === 'active' ? 'status-success' :
             project.status === 'planning' ? 'status-warning' :
-            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-          }`}>
+              'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+            }`}>
             {project.status}
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="input" className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="mx-6 mt-4 grid w-fit grid-cols-6 gap-1">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
@@ -63,20 +69,25 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
         </TabsList>
 
         <div className="flex-1 overflow-hidden">
-          <TabsContent value="input" className="mt-0 h-full overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
-              <InputForm 
-                project={project} 
-                onPredictionComplete={() => setPredictionCompleted(true)} 
-              />
-            </motion.div>
-          </TabsContent>
-          
+          {!predictionCompleted && (
+            <TabsContent value="input" className="mt-0 h-full overflow-y-auto">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2 }}
+                className="h-full"
+              >
+                <InputForm
+                  project={project}
+                  onPredictionComplete={() => {
+                    setPredictionCompleted(true);
+                    setActiveTab("prediction");
+                  }}
+                />
+              </motion.div>
+            </TabsContent>
+          )}
+
           <TabsContent value="prediction" className="mt-0 h-full overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -84,13 +95,13 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              <MaterialPrediction 
-                project={project} 
-                showPredictionResults={predictionCompleted} 
+              <MaterialPrediction
+                project={project}
+                showPredictionResults={predictionCompleted}
               />
             </motion.div>
           </TabsContent>
-          
+
           <TabsContent value="vendors" className="mt-0 h-full overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -98,13 +109,13 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              <VendorsTab 
-                project={project} 
-                showPredictionResults={predictionCompleted} 
+              <VendorsTab
+                project={project}
+                showPredictionResults={predictionCompleted}
               />
             </motion.div>
           </TabsContent>
-          
+
           <TabsContent value="timeline" className="mt-0 h-full overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -115,7 +126,7 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
               <ProcurementTimeline project={project} />
             </motion.div>
           </TabsContent>
-          
+
           <TabsContent value="schedule" className="mt-0 h-full overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -126,7 +137,7 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
               <ProjectSchedule project={project} />
             </motion.div>
           </TabsContent>
-          
+
           <TabsContent value="chatbot" className="mt-0 h-full overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, x: 20 }}

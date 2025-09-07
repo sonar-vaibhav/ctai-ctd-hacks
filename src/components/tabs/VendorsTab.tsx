@@ -26,12 +26,12 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
 
   const filteredVendors = mockVendors.filter(vendor => {
     const matchesSearch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vendor.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vendor.materials.some(material => material.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesMaterial = selectedMaterial === "all" || 
-                           vendor.materials.some(material => material.toLowerCase().includes(selectedMaterial.toLowerCase()));
-    
+      vendor.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.materials.some(material => material.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesMaterial = selectedMaterial === "all" ||
+      vendor.materials.some(material => material.toLowerCase().includes(selectedMaterial.toLowerCase()));
+
     return matchesSearch && matchesMaterial;
   });
 
@@ -74,8 +74,8 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
       {/* Search and Filter */}
       <Card className="dashboard-card mb-6">
         <CardHeader>
-          <CardTitle>Vendor Directory</CardTitle>
-          <CardDescription>Find and connect with qualified suppliers for your project materials</CardDescription>
+          <CardTitle>Vendor Directory (India)</CardTitle>
+          <CardDescription>Find and connect with qualified suppliers across Indian states and cities</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4">
@@ -133,8 +133,8 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                       </span>
                     </div>
                   </div>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="gradient-button"
                     onClick={() => handleContactVendor(vendor.name, vendor.email)}
                   >
@@ -143,7 +143,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                   </Button>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-4">
                 {/* Contact Information */}
                 <div className="space-y-2">
@@ -216,36 +216,6 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
         </motion.div>
       )}
 
-      {/* Summary Stats */}
-      <Card className="dashboard-card mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Vendor Statistics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{mockVendors.length}</div>
-              <div className="text-sm text-muted-foreground">Total Vendors</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {(mockVendors.reduce((sum, v) => sum + v.rating, 0) / mockVendors.length).toFixed(1)}
-              </div>
-              <div className="text-sm text-muted-foreground">Avg Rating</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{materialTypes.length}</div>
-              <div className="text-sm text-muted-foreground">Material Types</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {mockVendors.filter(v => v.rating >= 4.5).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Top Rated</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

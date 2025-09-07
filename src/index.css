@@ -161,6 +161,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    zoom: 0.95;
   }
 
   /* Custom scrollbar for webkit browsers */

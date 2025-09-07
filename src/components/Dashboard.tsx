@@ -16,34 +16,34 @@ export function Dashboard() {
 
   const handleCreateProject = async (newProjectData: Omit<Project, 'id' | 'createdAt' | 'timeline'>) => {
     setIsLoading(true);
-    
+
     // Simulate project creation delay
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     const newProject: Project = {
       ...newProjectData,
       id: Date.now().toString(),
       createdAt: new Date(),
       timeline: {
-        design: { 
-          start: new Date(), 
+        design: {
+          start: new Date(),
           end: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
-          status: 'pending' 
+          status: 'pending'
         },
-        development: { 
-          start: new Date(Date.now() + 61 * 24 * 60 * 60 * 1000), 
+        development: {
+          start: new Date(Date.now() + 61 * 24 * 60 * 60 * 1000),
           end: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
-          status: 'pending' 
+          status: 'pending'
         },
-        procurement: { 
-          start: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), 
+        procurement: {
+          start: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
           end: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-          status: 'pending' 
+          status: 'pending'
         },
-        installation: { 
-          start: new Date(Date.now() + 181 * 24 * 60 * 60 * 1000), 
+        installation: {
+          start: new Date(Date.now() + 181 * 24 * 60 * 60 * 1000),
           end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          status: 'pending' 
+          status: 'pending'
         },
       },
     };
@@ -55,18 +55,18 @@ export function Dashboard() {
 
   const handleSelectProject = async (project: Project) => {
     setIsLoading(true);
-    
+
     // Simulate project loading delay
     await new Promise(resolve => setTimeout(resolve, 800));
-    
+
     setSelectedProject(project);
     setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background grid grid-cols-1 lg:grid-cols-[320px_1fr]">
       {/* Fixed Sidebar */}
-      <div className="fixed left-0 top-0 h-full z-50 lg:relative lg:z-auto">
+      <div className="hidden lg:block sticky top-0 h-screen overflow-hidden">
         <Sidebar
           projects={projects}
           selectedProject={selectedProject}
@@ -75,8 +75,8 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 lg:ml-0 min-h-screen pl-80 lg:pl-0">
+      {/* Main Content - only this scrolls */}
+      <div className="min-h-screen flex flex-col lg:overflow-y-auto">
         {/* Header */}
         <header className="bg-card border-b border-border px-6 py-4 lg:px-8 sticky top-0 z-40">
           <div className="flex items-center justify-between">
@@ -136,7 +136,7 @@ function EmptyState({ onCreateProject }: EmptyStateProps) {
           </div>
           <h2 className="text-3xl font-bold mb-4">Welcome to ProcureAI</h2>
           <p className="text-muted-foreground text-lg mb-8">
-            Transform your procurement process with AI-powered insights, predictive analytics, 
+            Transform your procurement process with AI-powered insights, predictive analytics,
             and intelligent supplier management. Get started by creating your first project.
           </p>
         </div>
