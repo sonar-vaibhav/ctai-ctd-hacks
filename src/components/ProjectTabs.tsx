@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Project } from "@/data/mockData";
@@ -13,6 +14,7 @@ interface ProjectTabsProps {
 }
 
 export function ProjectTabs({ project }: ProjectTabsProps) {
+  const [predictionCompleted, setPredictionCompleted] = useState(false);
   const tabs = [
     { id: "input", label: "Input Form", component: InputForm },
     { id: "prediction", label: "Material Prediction", component: MaterialPrediction },
@@ -61,25 +63,80 @@ export function ProjectTabs({ project }: ProjectTabsProps) {
         </TabsList>
 
         <div className="flex-1 overflow-hidden">
-          {tabs.map((tab) => {
-            const Component = tab.component;
-            return (
-              <TabsContent
-                key={tab.id}
-                value={tab.id}
-                className="mt-0 h-full overflow-y-auto"
-              >
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="h-full"
-                >
-                  <Component project={project} />
-                </motion.div>
-              </TabsContent>
-            );
-          })}
+          <TabsContent value="input" className="mt-0 h-full overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <InputForm 
+                project={project} 
+                onPredictionComplete={() => setPredictionCompleted(true)} 
+              />
+            </motion.div>
+          </TabsContent>
+          
+          <TabsContent value="prediction" className="mt-0 h-full overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <MaterialPrediction 
+                project={project} 
+                showPredictionResults={predictionCompleted} 
+              />
+            </motion.div>
+          </TabsContent>
+          
+          <TabsContent value="vendors" className="mt-0 h-full overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <VendorsTab 
+                project={project} 
+                showPredictionResults={predictionCompleted} 
+              />
+            </motion.div>
+          </TabsContent>
+          
+          <TabsContent value="timeline" className="mt-0 h-full overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <ProcurementTimeline project={project} />
+            </motion.div>
+          </TabsContent>
+          
+          <TabsContent value="schedule" className="mt-0 h-full overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <ProjectSchedule project={project} />
+            </motion.div>
+          </TabsContent>
+          
+          <TabsContent value="chatbot" className="mt-0 h-full overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <ChatbotPanel project={project} />
+            </motion.div>
+          </TabsContent>
         </div>
       </Tabs>
     </motion.div>

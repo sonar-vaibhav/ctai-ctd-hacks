@@ -11,9 +11,10 @@ import { Loader2, Send } from "lucide-react";
 
 interface InputFormProps {
   project: Project;
+  onPredictionComplete?: () => void;
 }
 
-export function InputForm({ project }: InputFormProps) {
+export function InputForm({ project, onPredictionComplete }: InputFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     projectType: project.type,
@@ -60,6 +61,11 @@ export function InputForm({ project }: InputFormProps) {
           title: "Prediction Complete",
           description: `Analysis generated for ${formData.projectType}. Check the Material Prediction tab for results.`,
         });
+        
+        // Trigger prediction completion callback
+        if (onPredictionComplete) {
+          onPredictionComplete();
+        }
       } else {
         throw new Error('Prediction failed');
       }

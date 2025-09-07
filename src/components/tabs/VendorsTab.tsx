@@ -1,18 +1,28 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Search, MapPin, Mail, Phone, Star } from "lucide-react";
+import { Search, MapPin, Mail, Phone, Star, MessageCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Project, mockVendors } from "@/data/mockData";
+import { useToast } from "@/hooks/use-toast";
 
 interface VendorsTabProps {
   project: Project;
+  showPredictionResults?: boolean;
 }
 
-export function VendorsTab({ project }: VendorsTabProps) {
+export function VendorsTab({ project, showPredictionResults = false }: VendorsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaterial, setSelectedMaterial] = useState<string>("all");
+  const { toast } = useToast();
+
+  const handleContactVendor = (vendorName: string, vendorEmail: string) => {
+    toast({
+      title: "Contacting Vendor",
+      description: `Opening contact form for ${vendorName} (${vendorEmail})`,
+    });
+  };
 
   const filteredVendors = mockVendors.filter(vendor => {
     const matchesSearch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,6 +50,27 @@ export function VendorsTab({ project }: VendorsTabProps) {
 
   return (
     <div className="tab-content">
+      {/* AI Prediction Results Banner */}
+      {showPredictionResults && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Card className="dashboard-card border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-primary">
+                <Star className="h-4 w-4" />
+                <span className="font-medium">AI Prediction Results</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Based on your project requirements, we've identified the best vendors for your materials.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Search and Filter */}
       <Card className="dashboard-card mb-6">
         <CardHeader>
@@ -102,7 +133,12 @@ export function VendorsTab({ project }: VendorsTabProps) {
                       </span>
                     </div>
                   </div>
-                  <Button size="sm" className="gradient-button">
+                  <Button 
+                    size="sm" 
+                    className="gradient-button"
+                    onClick={() => handleContactVendor(vendor.name, vendor.email)}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
                     Contact
                   </Button>
                 </div>

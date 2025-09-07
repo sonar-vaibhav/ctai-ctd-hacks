@@ -5,15 +5,21 @@ import { Sidebar } from "./Sidebar";
 import { ProjectTabs } from "./ProjectTabs";
 import { ThemeToggle } from "./ThemeToggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, TrendingUp, Clock, AlertCircle } from "lucide-react";
+import { FolderOpen, TrendingUp, Clock, AlertCircle, Loader2 } from "lucide-react";
 
 export function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [selectedProject, setSelectedProject] = useState<Project | null>(
     mockProjects.length > 0 ? mockProjects[0] : null
   );
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleCreateProject = (newProjectData: Omit<Project, 'id' | 'createdAt' | 'timeline'>) => {
+  const handleCreateProject = async (newProjectData: Omit<Project, 'id' | 'createdAt' | 'timeline'>) => {
+    setIsLoading(true);
+    
+    // Simulate project creation delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     const newProject: Project = {
       ...newProjectData,
       id: Date.now().toString(),
@@ -44,22 +50,35 @@ export function Dashboard() {
 
     setProjects(prev => [newProject, ...prev]);
     setSelectedProject(newProject);
+    setIsLoading(false);
+  };
+
+  const handleSelectProject = async (project: Project) => {
+    setIsLoading(true);
+    
+    // Simulate project loading delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    setSelectedProject(project);
+    setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <Sidebar
-        projects={projects}
-        selectedProject={selectedProject}
-        onSelectProject={setSelectedProject}
-        onCreateProject={handleCreateProject}
-      />
+      {/* Fixed Sidebar */}
+      <div className="fixed left-0 top-0 h-full z-50 lg:relative lg:z-auto">
+        <Sidebar
+          projects={projects}
+          selectedProject={selectedProject}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+        />
+      </div>
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-0 min-h-screen">
+      <div className="flex-1 lg:ml-0 min-h-screen pl-80 lg:pl-0">
         {/* Header */}
-        <header className="bg-card border-b border-border px-6 py-4 lg:px-8">
+        <header className="bg-card border-b border-border px-6 py-4 lg:px-8 sticky top-0 z-40">
           <div className="flex items-center justify-between">
             <div className="lg:hidden">
               <h1 className="text-xl font-semibold">ProcureAI Dashboard</h1>
@@ -74,9 +93,20 @@ export function Dashboard() {
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1">
-          {selectedProject ? (
+        {/* Scrollable Content Area */}
+        <main className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center"
+              >
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading project...</p>
+              </motion.div>
+            </div>
+          ) : selectedProject ? (
             <ProjectTabs project={selectedProject} />
           ) : (
             <EmptyState onCreateProject={handleCreateProject} />

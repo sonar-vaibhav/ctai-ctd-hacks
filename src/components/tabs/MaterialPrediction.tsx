@@ -7,9 +7,10 @@ import { Package, DollarSign, TrendingUp, Activity } from "lucide-react";
 
 interface MaterialPredictionProps {
   project: Project;
+  showPredictionResults?: boolean;
 }
 
-export function MaterialPrediction({ project }: MaterialPredictionProps) {
+export function MaterialPrediction({ project, showPredictionResults = false }: MaterialPredictionProps) {
   const totalCost = mockMaterials.reduce((sum, material) => sum + material.cost, 0);
   const totalQuantity = mockMaterials.reduce((sum, material) => sum + material.quantity, 0);
 
@@ -32,6 +33,27 @@ export function MaterialPrediction({ project }: MaterialPredictionProps) {
 
   return (
     <div className="tab-content">
+      {/* AI Prediction Results Banner */}
+      {showPredictionResults && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Card className="dashboard-card border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-primary">
+                <TrendingUp className="h-4 w-4" />
+                <span className="font-medium">AI Prediction Complete</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Material requirements and cost analysis generated based on your project specifications.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <motion.div
