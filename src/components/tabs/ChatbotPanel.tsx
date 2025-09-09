@@ -109,7 +109,7 @@ export function ChatbotPanel({ project }: ChatbotPanelProps) {
                   transition={{ duration: 0.2 }}
                   className={`flex gap-3 ${message.isUser ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <div className={`p-2 rounded-full ${
+                  <div style={{height:'fit-content'}} className={`p-2 rounded-full ${
                     message.isUser 
                       ? 'bg-primary text-primary-foreground' 
                       : 'bg-muted text-muted-foreground'
@@ -205,37 +205,6 @@ export function ChatbotPanel({ project }: ChatbotPanelProps) {
         </CardContent>
       </Card>
 
-      {/* AI Capabilities */}
-      <Card className="dashboard-card mt-6">
-        <CardHeader>
-          <CardTitle className="text-lg">AI Assistant Capabilities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="p-3 bg-primary/10 rounded-lg inline-block mb-2">
-                <TrendingUp className="h-6 w-6 text-primary" />
-              </div>
-              <h4 className="font-medium text-sm">Cost Optimization</h4>
-              <p className="text-xs text-muted-foreground">Identify savings opportunities</p>
-            </div>
-            <div className="text-center">
-              <div className="p-3 bg-primary/10 rounded-lg inline-block mb-2">
-                <Calendar className="h-6 w-6 text-primary" />
-              </div>
-              <h4 className="font-medium text-sm">Timeline Planning</h4>
-              <p className="text-xs text-muted-foreground">Optimize procurement schedules</p>
-            </div>
-            <div className="text-center">
-              <div className="p-3 bg-primary/10 rounded-lg inline-block mb-2">
-                <Package className="h-6 w-6 text-primary" />
-              </div>
-              <h4 className="font-medium text-sm">Material Insights</h4>
-              <p className="text-xs text-muted-foreground">Alternative material recommendations</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
