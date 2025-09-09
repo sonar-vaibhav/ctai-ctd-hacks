@@ -80,6 +80,17 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
         logs: [] 
       },
     }));
+    
+    // Store finalized vendor data for ProcurementTimeline integration
+    const finalizedVendors = JSON.parse(localStorage.getItem('finalizedVendors') || '{}');
+    finalizedVendors[material] = {
+      vendor: vendor.name,
+      deliveryDate: null, // Will be set when user updates delivery date in management
+      notes: "",
+      finalizedAt: new Date().toISOString()
+    };
+    localStorage.setItem('finalizedVendors', JSON.stringify(finalizedVendors));
+    
     toast({ title: "Vendor finalized", description: `${vendor.name} selected for ${material}` });
   };
 
@@ -403,14 +414,24 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label>Delivery Date</Label>
-                        <Input
-                          type="date"
-                          value={mgmt.deliveryDate ? mgmt.deliveryDate.toISOString().split('T')[0] : ''}
-                          onChange={(e) => setManagementData(prev => ({ ...prev, [manageMaterial]: { ...(prev[manageMaterial!] ?? { paymentStatus: "Pending", deliveryStatus: "Not Started", agreementStatus: "Finalized", totalAmount: 0, paymentMade: 0, paymentDueDate: null, notes: "", logs: [] }), deliveryDate: e.target.value ? new Date(e.target.value) : null } }))}
-                        />
-                      </div>
+                        <div>
+                          <Label>Delivery Date</Label>
+                          <Input
+                            type="date"
+                            value={mgmt.deliveryDate ? mgmt.deliveryDate.toISOString().split('T')[0] : ''}
+                            onChange={(e) => {
+                              const newDate = e.target.value ? new Date(e.target.value) : null;
+                              setManagementData(prev => ({ ...prev, [manageMaterial]: { ...(prev[manageMaterial!] ?? { paymentStatus: "Pending", deliveryStatus: "Not Started", agreementStatus: "Finalized", totalAmount: 0, paymentMade: 0, paymentDueDate: null, notes: "", logs: [] }), deliveryDate: newDate } }));
+                              
+                              // Update localStorage for ProcurementTimeline integration
+                              const finalizedVendors = JSON.parse(localStorage.getItem('finalizedVendors') || '{}');
+                              if (finalizedVendors[manageMaterial]) {
+                                finalizedVendors[manageMaterial].deliveryDate = newDate?.toISOString() || null;
+                                localStorage.setItem('finalizedVendors', JSON.stringify(finalizedVendors));
+                              }
+                            }}
+                          />
+                        </div>
                       <div>
                         <Label>Delivery Status</Label>
                         <Select value={mgmt.deliveryStatus} onValueChange={(val) => setManagementData(prev => ({ ...prev, [manageMaterial]: { ...(prev[manageMaterial!] ?? { paymentStatus: "Pending", deliveryDate: null, agreementStatus: "Finalized", totalAmount: 0, paymentMade: 0, paymentDueDate: null, notes: "", logs: [] }), deliveryStatus: val as any } }))}>

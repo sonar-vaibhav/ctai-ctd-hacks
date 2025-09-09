@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,12 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Project, mockProcurementItems } from "@/data/mockData";
-import { format, differenceInDays, startOfDay, endOfDay } from "date-fns";
-import { Calendar, Clock, AlertTriangle, CheckCircle, Package, Search, Filter, BarChart3, Table, Eye } from "lucide-react";
+import { format, differenceInDays, startOfDay, endOfDay, parseISO, isValid } from "date-fns";
+import { Calendar, Clock, AlertTriangle, CheckCircle, Package, Search, Filter, BarChart3, Table, Eye, Edit3, Save, X } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProcurementTimelineProps {
   project: Project;
+}
+
+interface EditableItem {
+  id: string;
+  material: string;
+  vendor: string;
+  category: string;
+  orderBy: Date;
+  deliveryStart: Date;
+  deliveryEnd: Date;
+  status: 'critical' | 'warning' | 'on-track';
+  leadTime: number;
+  notes: string;
+  isEditing?: boolean;
+  tempOrderBy?: string;
+  tempDeliveryStart?: string;
+  tempDeliveryEnd?: string;
 }
 
 export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
@@ -21,6 +39,9 @@ export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [editableItems, setEditableItems] = useState<EditableItem[]>([]);
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -54,18 +75,30 @@ export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
     return daysUntilOrder;
   };
 
-  // Enhanced mock data with categories
-  const enhancedItems = useMemo(() => {
-    return mockProcurementItems.map(item => ({
-      ...item,
+  // Initialize editable items from mock data
+  useEffect(() => {
+    const initialItems: EditableItem[] = mockProcurementItems.map(item => ({
+      id: item.id,
+      material: item.material,
+      vendor: item.vendor,
       category: item.material.includes('Steel') || item.material.includes('Concrete') ? 'Structural' :
                 item.material.includes('HVAC') || item.material.includes('Electrical') ? 'MEP' :
                 item.material.includes('Glass') || item.material.includes('Fire') ? 'Exterior' : 'Other',
+      orderBy: item.orderBy,
+      deliveryStart: item.deliveryStart,
+      deliveryEnd: item.deliveryEnd,
+      status: item.status,
       leadTime: differenceInDays(item.deliveryStart, item.orderBy),
       notes: item.status === 'critical' ? 'Critical path item - monitor closely' :
              item.status === 'warning' ? 'Potential delay risk' : 'On track'
     }));
+    setEditableItems(initialItems);
   }, []);
+
+  // Enhanced items for filtering and display
+  const enhancedItems = useMemo(() => {
+    return editableItems;
+  }, [editableItems]);
 
   const filteredItems = useMemo(() => {
     return enhancedItems.filter(item => {
@@ -115,6 +148,139 @@ export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
   const categories = useMemo(() => {
     return Array.from(new Set(enhancedItems.map(item => item.category)));
   }, [enhancedItems]);
+
+  // Editing functions
+  const startEditing = (itemId: string) => {
+    setEditingItem(itemId);
+    setEditableItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { 
+            ...item, 
+            tempOrderBy: format(item.orderBy, 'yyyy-MM-dd'),
+            tempDeliveryStart: format(item.deliveryStart, 'yyyy-MM-dd'),
+            tempDeliveryEnd: format(item.deliveryEnd, 'yyyy-MM-dd')
+          }
+        : item
+    ));
+  };
+
+  const cancelEditing = (itemId: string) => {
+    setEditingItem(null);
+    setEditableItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { 
+            ...item, 
+            tempOrderBy: undefined,
+            tempDeliveryStart: undefined,
+            tempDeliveryEnd: undefined
+          }
+        : item
+    ));
+  };
+
+  const saveEditing = (itemId: string) => {
+    const item = editableItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const newOrderBy = item.tempOrderBy ? parseISO(item.tempOrderBy) : item.orderBy;
+    const newDeliveryStart = item.tempDeliveryStart ? parseISO(item.tempDeliveryStart) : item.deliveryStart;
+    const newDeliveryEnd = item.tempDeliveryEnd ? parseISO(item.tempDeliveryEnd) : item.deliveryEnd;
+
+    // Validate dates
+    if (!isValid(newOrderBy) || !isValid(newDeliveryStart) || !isValid(newDeliveryEnd)) {
+      toast({
+        title: "Invalid Date",
+        description: "Please enter valid dates",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newDeliveryStart <= newOrderBy) {
+      toast({
+        title: "Invalid Delivery Date",
+        description: "Delivery start must be after order date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newDeliveryEnd <= newDeliveryStart) {
+      toast({
+        title: "Invalid Delivery Window",
+        description: "Delivery end must be after delivery start",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Update the item
+    setEditableItems(prev => prev.map(i => 
+      i.id === itemId 
+        ? {
+            ...i,
+            orderBy: newOrderBy,
+            deliveryStart: newDeliveryStart,
+            deliveryEnd: newDeliveryEnd,
+            leadTime: differenceInDays(newDeliveryStart, newOrderBy),
+            tempOrderBy: undefined,
+            tempDeliveryStart: undefined,
+            tempDeliveryEnd: undefined
+          }
+        : i
+    ));
+
+    setEditingItem(null);
+    toast({
+      title: "Updated",
+      description: `Schedule updated for ${item.material}`,
+    });
+  };
+
+  const updateTempValue = (itemId: string, field: 'tempOrderBy' | 'tempDeliveryStart' | 'tempDeliveryEnd', value: string) => {
+    setEditableItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { ...item, [field]: value }
+        : item
+    ));
+  };
+
+  // Vendor integration - check for finalized vendors and update delivery dates
+  const syncWithVendorData = () => {
+    // This would typically come from a context or props from VendorsTab
+    // For now, we'll simulate vendor data integration
+    const finalizedVendors = JSON.parse(localStorage.getItem('finalizedVendors') || '{}');
+    
+    if (Object.keys(finalizedVendors).length > 0) {
+      setEditableItems(prev => prev.map(item => {
+        const vendorData = finalizedVendors[item.material];
+        if (vendorData && vendorData.deliveryDate) {
+          const deliveryDate = new Date(vendorData.deliveryDate);
+          const deliveryStart = new Date(deliveryDate.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days before
+          const deliveryEnd = new Date(deliveryDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days after
+          
+          return {
+            ...item,
+            deliveryStart,
+            deliveryEnd,
+            leadTime: differenceInDays(deliveryStart, item.orderBy),
+            notes: vendorData.notes || item.notes
+          };
+        }
+        return item;
+      }));
+      
+      toast({
+        title: "Vendor Data Synced",
+        description: "Delivery dates updated from finalized vendors",
+      });
+    }
+  };
+
+  // Auto-sync with vendor data on component mount
+  useEffect(() => {
+    syncWithVendorData();
+  }, []);
 
 
   return (
@@ -274,6 +440,7 @@ export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
                   {sortedItems.map((item, index) => {
                     const leadTime = differenceInDays(item.deliveryStart, item.orderBy);
                     const orderDays = calculateTimeToOrder(item.orderBy);
+                    const isEditing = editingItem === item.id;
                     
                     return (
                       <motion.tr
@@ -291,13 +458,42 @@ export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
                         </td>
                         <td>{item.vendor}</td>
                         <td>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            {format(item.orderBy, 'MMM dd, yyyy')}
-                          </div>
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              value={item.tempOrderBy || ''}
+                              onChange={(e) => updateTempValue(item.id, 'tempOrderBy', e.target.value)}
+                              className="w-32 text-xs"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              {format(item.orderBy, 'MMM dd, yyyy')}
+                            </div>
+                          )}
                         </td>
                         <td>
-                          {format(item.deliveryStart, 'MMM dd')} - {format(item.deliveryEnd, 'MMM dd')}
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="date"
+                                value={item.tempDeliveryStart || ''}
+                                onChange={(e) => updateTempValue(item.id, 'tempDeliveryStart', e.target.value)}
+                                className="w-28 text-xs"
+                              />
+                              <span className="text-xs">-</span>
+                              <Input
+                                type="date"
+                                value={item.tempDeliveryEnd || ''}
+                                onChange={(e) => updateTempValue(item.id, 'tempDeliveryEnd', e.target.value)}
+                                className="w-28 text-xs"
+                              />
+                            </div>
+                          ) : (
+                            <span>
+                              {format(item.deliveryStart, 'MMM dd')} - {format(item.deliveryEnd, 'MMM dd')}
+                            </span>
+                          )}
                         </td>
                         <td>{leadTime} days</td>
                         <td>
@@ -310,11 +506,40 @@ export function ProcurementTimeline({ project }: ProcurementTimelineProps) {
                           {item.notes}
                         </td>
                         <td>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 items-center">
                             {orderDays <= 7 && (
                               <Badge variant="outline" className="text-xs">
                                 {orderDays <= 0 ? 'Urgent' : 'Soon'}
                               </Badge>
+                            )}
+                            {isEditing ? (
+                              <div className="flex gap-1 ml-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => saveEditing(item.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => cancelEditing(item.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => startEditing(item.id)}
+                                className="h-6 w-6 p-0 ml-2"
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
                             )}
                           </div>
                         </td>

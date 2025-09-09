@@ -1,17 +1,21 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Project, mockProcurementItems } from "@/data/mockData";
-import { format, differenceInDays, isAfter, isBefore, startOfDay, endOfDay } from "date-fns";
-import { 
-  CheckCircle, 
-  Clock, 
-  Calendar, 
-  TrendingUp, 
+import { format, differenceInDays, isAfter, isBefore, startOfDay, endOfDay, parseISO, isValid, addDays } from "date-fns";
+import {
+  CheckCircle,
+  Clock,
+  Calendar,
+  TrendingUp,
   AlertCircle,
   AlertTriangle,
   Zap,
@@ -20,17 +24,115 @@ import {
   BarChart3,
   Eye,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Edit3,
+  Save,
+  X,
+  Plus,
+  Trash2,
+  GripVertical
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProjectScheduleProps {
   project: Project;
 }
 
+interface ProjectTask {
+  id: string;
+  name: string;
+  phase: string;
+  duration: number;
+  startDate: Date;
+  finishDate: Date;
+  completion: number;
+  notes: string;
+  dependencies: string[];
+  status: 'pending' | 'in-progress' | 'completed' | 'blocked';
+  isEditing?: boolean;
+  tempDuration?: number;
+  tempStartDate?: string;
+  tempFinishDate?: string;
+  tempCompletion?: number;
+  tempNotes?: string;
+}
+
 export function ProjectSchedule({ project }: ProjectScheduleProps) {
+  const [viewMode, setViewMode] = useState<'table' | 'gantt'>('table');
   const [showGanttOverlay, setShowGanttOverlay] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set(['design']));
+  const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const { toast } = useToast();
+
+  // Initialize tasks from project phases
+  useEffect(() => {
+    const initialTasks: ProjectTask[] = [
+      {
+        id: 'task-1',
+        name: 'Conceptual & Schematic Design',
+        phase: 'Design',
+        duration: 30,
+        startDate: new Date('2025-01-01'),
+        finishDate: new Date('2025-01-31'),
+        completion: 30,
+        notes: 'Architectural planning and initial design concepts',
+        dependencies: [],
+        status: 'in-progress'
+      },
+      {
+        id: 'task-2',
+        name: 'Design Development',
+        phase: 'Design',
+        duration: 45,
+        startDate: new Date('2025-02-01'),
+        finishDate: new Date('2025-03-17'),
+        completion: 60,
+        notes: 'Detailed engineering drawings and specifications',
+        dependencies: ['task-1'],
+        status: 'in-progress'
+      },
+      {
+        id: 'task-3',
+        name: 'Construction Documents (IFC)',
+        phase: 'Design',
+        duration: 30,
+        startDate: new Date('2025-03-18'),
+        finishDate: new Date('2025-04-17'),
+        completion: 15,
+        notes: 'Issued for Construction drawings and final specifications',
+        dependencies: ['task-2'],
+        status: 'pending'
+      },
+      {
+        id: 'task-4',
+        name: 'Electrical Installation',
+        phase: 'Installation',
+        duration: 60,
+        startDate: new Date('2025-12-01'),
+        finishDate: new Date('2025-01-30'),
+        completion: 0,
+        notes: 'Electrical systems installation and testing',
+        dependencies: ['task-3'],
+        status: 'pending'
+      },
+      {
+        id: 'task-5',
+        name: 'Mechanical Installation',
+        phase: 'Installation',
+        duration: 45,
+        startDate: new Date('2025-12-15'),
+        finishDate: new Date('2025-01-29'),
+        completion: 0,
+        notes: 'HVAC and mechanical systems installation',
+        dependencies: ['task-3'],
+        status: 'pending'
+      }
+    ];
+    setTasks(initialTasks);
+  }, []);
 
   const phases = [
     {
@@ -43,7 +145,7 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
     },
     {
       id: 'development',
-      name: 'Development Phase', 
+      name: 'Development Phase',
       description: 'Permits, approvals, and preparation',
       icon: Users,
       progress: 60,
@@ -75,6 +177,135 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
       newExpanded.add(phaseId);
     }
     setExpandedPhases(newExpanded);
+  };
+
+  // Task editing functions
+  const startEditing = (taskId: string) => {
+    setEditingTask(taskId);
+    setTasks(prev => prev.map(task =>
+      task.id === taskId
+        ? {
+          ...task,
+          tempDuration: task.duration,
+          tempStartDate: format(task.startDate, 'yyyy-MM-dd'),
+          tempFinishDate: format(task.finishDate, 'yyyy-MM-dd'),
+          tempCompletion: task.completion,
+          tempNotes: task.notes
+        }
+        : task
+    ));
+  };
+
+  const cancelEditing = (taskId: string) => {
+    setEditingTask(null);
+    setTasks(prev => prev.map(task =>
+      task.id === taskId
+        ? {
+          ...task,
+          tempDuration: undefined,
+          tempStartDate: undefined,
+          tempFinishDate: undefined,
+          tempCompletion: undefined,
+          tempNotes: undefined
+        }
+        : task
+    ));
+  };
+
+  const saveEditing = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const newDuration = task.tempDuration || task.duration;
+    const newStartDate = task.tempStartDate ? parseISO(task.tempStartDate) : task.startDate;
+    const newFinishDate = task.tempFinishDate ? parseISO(task.tempFinishDate) : task.finishDate;
+    const newCompletion = task.tempCompletion !== undefined ? task.tempCompletion : task.completion;
+    const newNotes = task.tempNotes || task.notes;
+
+    // Validate dates
+    if (!isValid(newStartDate) || !isValid(newFinishDate)) {
+      toast({
+        title: "Invalid Date",
+        description: "Please enter valid dates",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newFinishDate <= newStartDate) {
+      toast({
+        title: "Invalid Date Range",
+        description: "Finish date must be after start date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Update the task
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      const shouldBeCompleted = newCompletion === 100;
+      return {
+        ...t,
+        duration: newDuration,
+        startDate: newStartDate,
+        finishDate: newFinishDate,
+        completion: newCompletion,
+        // If completion is 100, ensure status is marked as completed
+        status: shouldBeCompleted ? 'completed' : t.status,
+        notes: newNotes,
+        tempDuration: undefined,
+        tempStartDate: undefined,
+        tempFinishDate: undefined,
+        tempCompletion: undefined,
+        tempNotes: undefined
+      };
+    }));
+
+    setEditingTask(null);
+    toast({
+      title: "Task Updated",
+      description: `Schedule updated for ${task.name}`,
+    });
+  };
+
+  const updateTempValue = (taskId: string, field: string, value: any) => {
+    setTasks(prev => prev.map(task =>
+      task.id === taskId
+        ? { ...task, [field]: value }
+        : task
+    ));
+  };
+
+  const addNewTask = () => {
+    const newTask: ProjectTask = {
+      id: `task-${Date.now()}`,
+      name: 'New Task',
+      phase: 'Design',
+      duration: 30,
+      startDate: new Date(),
+      finishDate: addDays(new Date(), 30),
+      completion: 0,
+      notes: '',
+      dependencies: [],
+      status: 'pending',
+      isEditing: true,
+      tempDuration: 30,
+      tempStartDate: format(new Date(), 'yyyy-MM-dd'),
+      tempFinishDate: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      tempCompletion: 0,
+      tempNotes: ''
+    };
+    setTasks(prev => [...prev, newTask]);
+    setEditingTask(newTask.id);
+  };
+
+  const deleteTask = (taskId: string) => {
+    setTasks(prev => prev.filter(task => task.id !== taskId));
+    toast({
+      title: "Task Deleted",
+      description: "Task has been removed from the schedule",
+    });
   };
 
   // Enhanced procurement data for Gantt overlay
@@ -117,13 +348,13 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
   const getPhaseProgress = (phase: any) => {
     const today = new Date();
     const totalDays = differenceInDays(phase.end, phase.start);
-    
+
     if (phase.status === 'completed') return 100;
     if (phase.status === 'pending') return 0;
-    
+
     if (isBefore(today, phase.start)) return 0;
     if (isAfter(today, phase.end)) return 100;
-    
+
     const daysElapsed = differenceInDays(today, phase.start);
     return Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
   };
@@ -158,6 +389,7 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
 
   return (
     <div className="tab-content">
+
       {/* Enhanced Header with Controls */}
       <Card className="dashboard-card mb-6">
         <CardHeader>
@@ -165,16 +397,28 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
             <div>
               <CardTitle>Project Schedule</CardTitle>
               <CardDescription>
-                Interactive roadmap with stepper view and Gantt overlay
+                Editable project timeline with interactive Gantt charts
               </CardDescription>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addNewTask}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Task
+              </Button>
               <div className="flex items-center gap-2">
-                <Switch
-                  checked={showGanttOverlay}
-                  onCheckedChange={setShowGanttOverlay}
-                />
-                <span className="text-sm">Show Gantt Overlay</span>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Table
+                </Button>
+
               </div>
             </div>
           </div>
@@ -185,37 +429,36 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Overall Progress</span>
-                <span className="text-sm text-muted-foreground">{Math.round(overallProgress)}%</span>
+                <span className="text-sm text-muted-foreground">
+                  {Math.round(tasks.reduce((sum, task) => sum + task.completion, 0) / tasks.length)}%
+                </span>
               </div>
-              <Progress value={overallProgress} className="h-3" />
+              <Progress value={tasks.reduce((sum, task) => sum + task.completion, 0) / tasks.length} className="h-3" />
             </div>
 
             {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">
-                  {phases.filter(p => p.status === 'completed').length}
+                  {tasks.filter(t => t.status === 'completed').length}
                 </div>
-                <div className="text-sm text-muted-foreground">Completed Phases</div>
+                <div className="text-sm text-muted-foreground">Completed Tasks</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-warning">
-                  {phases.filter(p => p.status === 'in-progress').length}
+                  {tasks.filter(t => t.status === 'in-progress').length}
                 </div>
-                <div className="text-sm text-muted-foreground">Active Phases</div>
+                <div className="text-sm text-muted-foreground">Active Tasks</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-muted-foreground">
-                  {differenceInDays(
-                    Math.max(...phases.map(p => p.end.getTime())),
-                    Math.min(...phases.map(p => p.start.getTime()))
-                  )}
+                  {tasks.length}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Days</div>
+                <div className="text-sm text-muted-foreground">Total Tasks</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-success">
-                  {format(Math.max(...phases.map(p => p.end.getTime())), 'MMM yyyy')}
+                  {tasks.length > 0 ? format(Math.max(...tasks.map(t => t.finishDate.getTime())), 'MMM yyyy') : 'N/A'}
                 </div>
                 <div className="text-sm text-muted-foreground">Target Completion</div>
               </div>
@@ -224,489 +467,272 @@ export function ProjectSchedule({ project }: ProjectScheduleProps) {
         </CardContent>
       </Card>
 
-      {/* Stepper/Roadmap View */}
-      <div className="space-y-6">
-        {phases.map((phase, index) => {
-          const progress = getPhaseProgress(phase);
-          const duration = differenceInDays(phase.end, phase.start);
-          const Icon = phase.icon;
-          const isExpanded = expandedPhases.has(phase.id);
-          const isLast = index === phases.length - 1;
-          
-          return (
-            <motion.div
-              key={phase.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="relative"
-            >
-              {/* Connection Line */}
-              {!isLast && (
-                <div className="absolute left-6 top-16 w-0.5 h-8 bg-border z-0" />
-              )}
-              
-              <Card className="dashboard-card relative z-10">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    {/* Phase Header with Expand/Collapse */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4 flex-1">
-                        {/* Phase Icon with Status */}
-                        <div className="relative">
-                          <div className={`p-3 rounded-lg ${getStatusColor(phase.status)}`}>
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          {phase.status === 'completed' && (
-                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full flex items-center justify-center">
-                              <CheckCircle className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-semibold">{phase.name}</h3>
-                            <Badge className={getStatusColor(phase.status)}>
-                              {getStatusIcon(phase.status)}
-                              <span className="ml-1 capitalize">{phase.status.replace('-', ' ')}</span>
-                            </Badge>
-                          </div>
-                          <p className="text-muted-foreground text-sm mb-3">{phase.description}</p>
-                          
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                            <span>{format(phase.start, 'MMM dd, yyyy')}</span>
-                            <span>→</span>
-                            <span>{format(phase.end, 'MMM dd, yyyy')}</span>
-                            <span>•</span>
-                            <span>{duration} days</span>
-                          </div>
+      {/* Task Management Summary */}
+      <Card className="dashboard-card mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Project Schedule Summary
+          </CardTitle>
+          <CardDescription>Overview of project phases and task distribution</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-medium mb-3">Phase Distribution</h4>
+              <div className="space-y-3">
+                {['Design', 'Development', 'Procurement', 'Installation'].map(phase => {
+                  const phaseTasks = tasks.filter(t => t.phase === phase);
+                  const completedTasks = phaseTasks.filter(t => t.status === 'completed').length;
+                  const totalTasks = phaseTasks.length;
 
-                          {/* Progress Bar */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="font-medium">Progress</span>
-                              <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                            </div>
-                            <Progress value={progress} className="h-2" />
-                          </div>
-                        </div>
+                  return (
+                    <div key={phase} className="flex items-center justify-between">
+                      <span className="text-sm">{phase}</span>
+                      <div className="flex items-center gap-2">
+                        <Progress value={totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0} className="w-20 h-2" />
+                        <span className="text-sm text-muted-foreground w-12">
+                          {completedTasks}/{totalTasks}
+                        </span>
                       </div>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => togglePhaseExpansion(phase.id)}
-                        className="flex-shrink-0"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                    {/* Expandable Details */}
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="pt-4 border-t border-border"
-                      >
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div>
-                            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                              <CheckCircle className="h-4 w-4" />
-                              Key Milestones
-                            </h4>
-                            <ul className="text-sm text-muted-foreground space-y-2">
-                              {phase.id === 'design' && (
-                                <>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
-                                    Architectural plans completed
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-warning rounded-full"></div>
-                                    Engineering drawings approved
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-muted rounded-full"></div>
-                                    Structural analysis finalized
-                                  </li>
-                                </>
-                              )}
-                              {phase.id === 'development' && (
-                                <>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
-                                    Building permits obtained
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
-                                    Environmental approvals
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-warning rounded-full"></div>
-                                    Site preparation completed
-                                  </li>
-                                </>
-                              )}
-                              {phase.id === 'procurement' && (
-                                <>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-warning rounded-full"></div>
-                                    Vendor contracts signed
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-muted rounded-full"></div>
-                                    Material orders placed
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-muted rounded-full"></div>
-                                    Delivery schedules confirmed
-                                  </li>
-                                </>
-                              )}
-                              {phase.id === 'installation' && (
-                                <>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-muted rounded-full"></div>
-                                    Foundation work completed
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-muted rounded-full"></div>
-                                    Structural assembly finished
-                                  </li>
-                                  <li className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-muted rounded-full"></div>
-                                    Final inspections passed
-                                  </li>
-                                </>
-                              )}
-                            </ul>
-                          </div>
-                          
-                          <div>
-                            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                              <AlertCircle className="h-4 w-4" />
-                              Dependencies
-                            </h4>
-                            <ul className="text-sm text-muted-foreground space-y-2">
-                              {index > 0 && (
-                                <li className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                                  {phases[index - 1].name}
-                                </li>
-                              )}
-                              {phase.id === 'procurement' && (
-                                <li className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                                  Design approvals
-                                </li>
-                              )}
-                              {phase.id === 'installation' && (
-                                <li className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 bg-warning rounded-full"></div>
-                                  Material deliveries
-                                </li>
-                              )}
-                              {index === phases.length - 1 && (
-                                <li className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                                  All previous phases
-                                </li>
-                              )}
-                            </ul>
-                          </div>
-                          
-                          <div>
-                            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                              <Users className="h-4 w-4" />
-                              Team & Resources
-                            </h4>
-                            <ul className="text-sm text-muted-foreground space-y-2">
-                              {phase.id === 'design' && (
-                                <>
-                                  <li>• Architects (3)</li>
-                                  <li>• Engineers (5)</li>
-                                  <li>• Design consultants (2)</li>
-                                </>
-                              )}
-                              {phase.id === 'development' && (
-                                <>
-                                  <li>• Project managers (2)</li>
-                                  <li>• Legal team (1)</li>
-                                  <li>• Site supervisors (3)</li>
-                                </>
-                              )}
-                              {phase.id === 'procurement' && (
-                                <>
-                                  <li>• Procurement specialists (2)</li>
-                                  <li>• Vendor managers (3)</li>
-                                  <li>• Quality inspectors (2)</li>
-                                </>
-                              )}
-                              {phase.id === 'installation' && (
-                                <>
-                                  <li>• Construction crew (15)</li>
-                                  <li>• Site managers (3)</li>
-                                  <li>• Safety officers (2)</li>
-                                </>
-                              )}
-                            </ul>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
-      </div>
+            <div>
+              <h4 className="font-medium mb-3">Task Status Overview</h4>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Completed</span>
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    {tasks.filter(t => t.status === 'completed').length}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">In Progress</span>
+                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    {tasks.filter(t => t.status === 'in-progress').length}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Pending</span>
+                  <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                    {tasks.filter(t => t.status === 'pending').length}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Blocked</span>
+                  <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                    {tasks.filter(t => t.status === 'blocked').length}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Interactive Gantt Overlay */}
-      {showGanttOverlay && (
-        <Card className="dashboard-card mt-6">
+      {/* Editable Table View */}
+      {viewMode === 'table' && (
+        <Card className="dashboard-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Interactive Gantt Chart Overlay
-            </CardTitle>
-            <CardDescription>Visual timeline showing procurement and installation schedules</CardDescription>
+            <CardTitle>Project Tasks</CardTitle>
+            <CardDescription>Manage project phases, tasks, and timelines</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Legend */}
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                  <span>Procurement Timeline</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                  <span>Installation Timeline</span>
-                </div>
-              </div>
-
-              {/* Gantt Chart */}
-              <div className="overflow-x-auto">
-                <div className="min-w-[800px] space-y-2">
-                  {/* Procurement Items */}
-                  {procurementGanttData.map((item, index) => {
-                    const getBarColor = (status: string) => {
-                      switch (status) {
-                        case 'critical': return '#ef4444';
-                        case 'warning': return '#f59e0b';
-                        case 'on-track': return '#10b981';
-                        default: return '#6b7280';
-                      }
-                    };
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 font-medium">Task Name</th>
+                    <th className="text-left p-3 font-medium">Phase</th>
+                    <th className="text-left p-3 font-medium">Duration</th>
+                    <th className="text-left p-3 font-medium">Start Date</th>
+                    <th className="text-left p-3 font-medium">Finish Date</th>
+                    <th className="text-left p-3 font-medium">Completion</th>
+                    <th className="text-left p-3 font-medium">Status</th>
+                    <th className="text-left p-3 font-medium">Notes</th>
+                    <th className="text-left p-3 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map((task, index) => {
+                    const isEditing = editingTask === task.id;
 
                     return (
-                      <motion.div
-                        key={`proc-${item.name}`}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
-                        className="relative h-8 flex items-center group"
+                      <motion.tr
+                        key={task.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: index * 0.1 }}
+                        className="hover:bg-muted/50 transition-colors"
                       >
-                        <div className="w-48 pr-4 flex-shrink-0">
-                          <div className="font-medium text-sm truncate">{item.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{item.vendor}</div>
-                        </div>
-                        <div className="flex-1 relative h-6 bg-muted rounded-lg overflow-hidden">
-                          <div 
-                            className="absolute top-0 h-full rounded-lg"
-                            style={{ 
-                              left: '10%',
-                              width: '30%',
-                              backgroundColor: '#fbbf24'
-                            }}
-                          />
-                          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-popover border rounded-lg p-3 shadow-lg z-10 min-w-[200px]">
-                              <div className="text-sm">
-                                <div className="font-medium mb-1">{item.name}</div>
-                                <div className="text-muted-foreground">
-                                  <div>Vendor: {item.vendor}</div>
-                                  <div>Order: {format(item.orderBy, 'MMM dd')}</div>
-                                  <div>Delivery: {format(item.deliveryStart, 'MMM dd')} - {format(item.deliveryEnd, 'MMM dd')}</div>
-                                </div>
-                              </div>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <Input
+                              value={task.name}
+                              onChange={(e) => updateTempValue(task.id, 'name', e.target.value)}
+                              className="w-full"
+                            />
+                          ) : (
+                            <div className="font-medium">{task.name}</div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <Select value={task.phase} onValueChange={(value) => updateTempValue(task.id, 'phase', value)}>
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Design">Design</SelectItem>
+                                <SelectItem value="Development">Development</SelectItem>
+                                <SelectItem value="Procurement">Procurement</SelectItem>
+                                <SelectItem value="Installation">Installation</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant="outline">{task.phase}</Badge>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={task.tempDuration || task.duration}
+                              onChange={(e) => updateTempValue(task.id, 'tempDuration', parseInt(e.target.value) || 0)}
+                              className="w-20"
+                            />
+                          ) : (
+                            <span>{task.duration} days</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              value={task.tempStartDate || format(task.startDate, 'yyyy-MM-dd')}
+                              onChange={(e) => updateTempValue(task.id, 'tempStartDate', e.target.value)}
+                              className="w-36"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              {format(task.startDate, 'MMM dd, yyyy')}
                             </div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              value={task.tempFinishDate || format(task.finishDate, 'yyyy-MM-dd')}
+                              onChange={(e) => updateTempValue(task.id, 'tempFinishDate', e.target.value)}
+                              className="w-36"
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              {format(task.finishDate, 'MMM dd, yyyy')}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={task.tempCompletion !== undefined ? task.tempCompletion : task.completion}
+                                onChange={(e) => updateTempValue(task.id, 'tempCompletion', parseInt(e.target.value) || 0)}
+                                className="w-16"
+                              />
+                              <span className="text-xs">%</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Progress value={task.completion} className="w-16 h-2" />
+                              <span className="text-sm">{task.completion}%</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <Badge className={getStatusColor(task.status)}>
+                            {getStatusIcon(task.status)}
+                            <span className="ml-1 capitalize">{task.status.replace('-', ' ')}</span>
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          {isEditing ? (
+                            <Textarea
+                              value={task.tempNotes || task.notes}
+                              onChange={(e) => updateTempValue(task.id, 'tempNotes', e.target.value)}
+                              className="w-48 h-16 text-xs"
+                              placeholder="Add notes..."
+                            />
+                          ) : (
+                            <div className="text-sm text-muted-foreground max-w-xs truncate">
+                              {task.notes}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-1 items-center">
+                            {isEditing ? (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => saveEditing(task.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => cancelEditing(task.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => startEditing(task.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => deleteTask(task.id)}
+                                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <div className="w-20 pl-4 flex-shrink-0">
-                          <Badge variant="outline" className="text-xs">Procurement</Badge>
-                        </div>
-                      </motion.div>
+                        </td>
+                      </motion.tr>
                     );
                   })}
-
-                  {/* Installation Items */}
-                  {installationGanttData.map((item, index) => (
-                    <motion.div
-                      key={`inst-${item.name}`}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: (procurementGanttData.length + index) * 0.1 }}
-                      className="relative h-8 flex items-center group"
-                    >
-                      <div className="w-48 pr-4 flex-shrink-0">
-                        <div className="font-medium text-sm truncate">{item.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">Installation</div>
-                      </div>
-                      <div className="flex-1 relative h-6 bg-muted rounded-lg overflow-hidden">
-                        <div 
-                          className="absolute top-0 h-full rounded-lg"
-                          style={{ 
-                            left: '60%',
-                            width: '25%',
-                            backgroundColor: '#3b82f6'
-                          }}
-                        />
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-popover border rounded-lg p-3 shadow-lg z-10 min-w-[200px]">
-                            <div className="text-sm">
-                              <div className="font-medium mb-1">{item.name}</div>
-                              <div className="text-muted-foreground">
-                                <div>Start: {format(item.start, 'MMM dd')}</div>
-                                <div>End: {format(item.end, 'MMM dd')}</div>
-                                <div>Duration: {differenceInDays(item.end, item.start)} days</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="w-20 pl-4 flex-shrink-0">
-                        <Badge variant="outline" className="text-xs">Installation</Badge>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Alerts and Warnings */}
-      <Card className="dashboard-card mt-6 border-warning/20 bg-warning/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-warning">
-            <AlertTriangle className="h-5 w-5" />
-            Schedule Conflicts & Warnings
-          </CardTitle>
-          <CardDescription>Potential timeline conflicts requiring attention</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-3 p-3 bg-warning/10 rounded-lg border border-warning/20"
-            >
-              <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
-              <div className="flex-1">
-                <div className="font-medium">Steel Delivery vs Foundation Work</div>
-                <div className="text-sm text-muted-foreground">
-                  Steel delivery window overlaps with foundation work start date
-                </div>
-              </div>
-              <Badge variant="outline" className="text-warning">Warning</Badge>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="flex items-center gap-3 p-3 bg-warning/10 rounded-lg border border-warning/20"
-            >
-              <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
-              <div className="flex-1">
-                <div className="font-medium">HVAC Installation Delay Risk</div>
-                <div className="text-sm text-muted-foreground">
-                  HVAC delivery scheduled close to installation start - consider buffer
-                </div>
-              </div>
-              <Badge variant="outline" className="text-warning">Warning</Badge>
-            </motion.div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Risk Assessment */}
-      <Card className="dashboard-card mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Schedule Risk Assessment
-          </CardTitle>
-          <CardDescription>Potential risks and mitigation strategies for project timeline</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium mb-3">High Priority Risks</h4>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Material Delivery Delays</div>
-                    <div className="text-sm text-muted-foreground">Steel delivery critical path item</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-4 w-4 text-warning mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Weather Dependencies</div>
-                    <div className="text-sm text-muted-foreground">Winter construction constraints</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-4 w-4 text-warning mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Resource Availability</div>
-                    <div className="text-sm text-muted-foreground">Skilled labor shortage</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-medium mb-3">Mitigation Strategies</h4>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-4 w-4 text-success mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Alternative Suppliers</div>
-                    <div className="text-sm text-muted-foreground">Backup vendors identified</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-4 w-4 text-success mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Schedule Buffer</div>
-                    <div className="text-sm text-muted-foreground">10% time buffer built in</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-4 w-4 text-success mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Early Procurement</div>
-                    <div className="text-sm text-muted-foreground">Critical materials ordered early</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
