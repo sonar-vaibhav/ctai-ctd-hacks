@@ -46,15 +46,7 @@ npm run dev
 
 The frontend will be available at `http://localhost:8080`
 
-## API Endpoints
-
-### Vendor Management
-- `GET /vendors?material={material}&location={location}` - Search vendors
-- `POST /vendors/finalize/{vendor_id}` - Finalize a vendor
-- `PATCH /vendors/{vendor_id}` - Update vendor information
-- `GET /vendors/finalized` - Get all finalized vendors
-
-### Example Usage
+### Example Usage (Once backend started)
 
 ```bash
 # Search for steel vendors in Pune
