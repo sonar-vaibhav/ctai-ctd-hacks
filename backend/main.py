@@ -1,129 +1,25 @@
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from pydantic import BaseModel
-from typing import List, Optional
 import requests
 from bs4 import BeautifulSoup
 import time
 import random
 from fake_useragent import UserAgent
 import logging
-from datetime import datetime
 import re
+from typing import List, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database setup
-SQLALCHEMY_DATABASE_URL = "sqlite:///./vendors.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-# Database Models
-class Vendor(Base):
-    __tablename__ = "vendors"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    material = Column(String, index=True)
-    vendor_name = Column(String)
-    vendor_website = Column(String, nullable=True)
-    rating = Column(String, nullable=True)
-    rating_count = Column(String, nullable=True)
-    item_name = Column(String, nullable=True)
-    item_price = Column(String, nullable=True)
-    item_unit = Column(String, nullable=True)
-    gst_verified = Column(Boolean, default=False)
-    trustseal_verified = Column(Boolean, default=False)
-    member_since = Column(String, nullable=True)
-    location = Column(String)
-    contact = Column(String, nullable=True)
-    email = Column(String, nullable=True)
-    url = Column(String, nullable=True)
-    finalized = Column(Boolean, default=False)
-    payment_status = Column(String, default="Pending")
-    delivery_status = Column(String, default="Not Started")
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-# Create tables
-Base.metadata.create_all(bind=engine)
-
-# Pydantic models
-class VendorResponse(BaseModel):
-    id: int
-    vendor: str
-    vendor_website: Optional[str] = None
-    rating: Optional[str] = None
-    rating_count: Optional[str] = None
-    item_name: Optional[str] = None
-    item_price: Optional[str] = None
-    item_unit: Optional[str] = None
-    gst_verified: bool = False
-    trustseal_verified: bool = False
-    member_since: Optional[str] = None
-    location: str
-    contact: Optional[str] = None
-    email: Optional[str] = None
-    url: Optional[str] = None
-    finalized: bool = False
-    payment_status: str = "Pending"
-    delivery_status: str = "Not Started"
-    notes: Optional[str] = None
-    
-    class Config:
-        from_attributes = True
-    
-    @classmethod
-    def from_orm(cls, vendor):
-        """Convert Vendor ORM object to VendorResponse"""
-        return cls(
-            id=vendor.id,
-            vendor=vendor.vendor_name,  # Map vendor_name to vendor
-            vendor_website=getattr(vendor, 'vendor_website', None),
-            rating=getattr(vendor, 'rating', None),
-            rating_count=getattr(vendor, 'rating_count', None),
-            item_name=getattr(vendor, 'item_name', None),
-            item_price=getattr(vendor, 'item_price', None),
-            item_unit=getattr(vendor, 'item_unit', None),
-            gst_verified=getattr(vendor, 'gst_verified', False),
-            trustseal_verified=getattr(vendor, 'trustseal_verified', False),
-            member_since=getattr(vendor, 'member_since', None),
-            location=vendor.location,
-            contact=vendor.contact,
-            email=vendor.email,
-            url=vendor.url,
-            finalized=vendor.finalized,
-            payment_status=vendor.payment_status,
-            delivery_status=vendor.delivery_status,
-            notes=vendor.notes
-        )
-
-class VendorCreate(BaseModel):
-    material: str
-    vendor_name: str
-    location: str
-    contact: Optional[str] = None
-    email: Optional[str] = None
-    url: Optional[str] = None
-
-class VendorUpdate(BaseModel):
-    finalized: Optional[bool] = None
-    payment_status: Optional[str] = None
-    delivery_status: Optional[str] = None
-    notes: Optional[str] = None
-
 # FastAPI app
 app = FastAPI(
     title="Smart Buy Dashboard API",
     description="API for vendor management and IndiaMART scraping",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=None,  # Disable /docs
+    redoc_url=None  # Disable /redoc
 )
 
 # CORS middleware
@@ -135,13 +31,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency to get database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # IndiaMART Scraper Class
 class IndiaMARTScraper:
@@ -462,40 +351,6 @@ async def get_vendors(
         logger.error(f"Error in get_vendors: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/vendors/finalize/{vendor_id}")
-async def finalize_vendor(vendor_id: int, db: Session = Depends(get_db)):
-    """Mark a vendor as finalized"""
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-    
-    vendor.finalized = True
-    vendor.updated_at = datetime.utcnow()
-    db.commit()
-    
-    return {"message": f"Vendor {vendor.vendor_name} has been finalized"}
-
-@app.patch("/vendors/{vendor_id}")
-async def update_vendor(vendor_id: int, vendor_update: VendorUpdate, db: Session = Depends(get_db)):
-    """Update vendor information"""
-    vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-    
-    update_data = vendor_update.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(vendor, field, value)
-    
-    vendor.updated_at = datetime.utcnow()
-    db.commit()
-    
-    return {"message": f"Vendor {vendor.vendor_name} updated successfully"}
-
-@app.get("/vendors/finalized")
-async def get_finalized_vendors(db: Session = Depends(get_db)):
-    """Get all finalized vendors"""
-    vendors = db.query(Vendor).filter(Vendor.finalized == True).all()
-    return [VendorResponse.from_orm(vendor) for vendor in vendors]
 
 if __name__ == "__main__":
     import uvicorn
