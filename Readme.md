@@ -19,7 +19,7 @@ python -m venv venv
 
 # Activate virtual environment
 # Windows:
-venv\Scripts\activate
+venv\Scripts\activate.bat
 # Linux/Mac:
 source venv/bin/activate
 
@@ -45,6 +45,8 @@ npm run dev
 ```
 
 The frontend will be available at `http://localhost:8080`
+
+-- Check the GitHub README.md file for the deployed project. 
 
 ### Example Usage (Once backend started)
 
