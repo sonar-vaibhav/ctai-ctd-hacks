@@ -1,6 +1,7 @@
 # Smart Buy Dashboard
 
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/sonar-vaibhav/ctai-ctd-hacks)
+[GitHub Repository](https://github.com/sonar-vaibhav/ctai-ctd-hacks)
+[Live Project](https://ctai-ctd-hacks.onrender.com/)
 
 Smart Buy Dashboard is a comprehensive procurement management platform that combines AI-powered material prediction with real-time vendor sourcing from IndiaMART.
 
@@ -41,18 +42,19 @@ smart-buy-dash/
 │   ├── database/      # Database management
 │   ├── ml/            # Machine learning models
 │   ├── models/        # Data models
-│   ├── requirements.txt # Python dependencies
+│   ├── requirements.txt # Python dependencies (for development with ML)
 │   └── ...            # Other backend files
 ├── Readme.md          # Main project documentation
 ├── FRONTEND_BACKEND_CONNECTION.md # Frontend-backend integration guide
 ├── MONGODB_INTEGRATION.md # MongoDB setup and deployment guide
+├── DEPLOYMENT_GUIDE.md # Detailed deployment instructions
 └── render.yaml        # Render deployment configuration
 ```
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
-- **Python 3.8+** (for backend)
+- **Python 3.11** (for backend - Python 3.13 has compatibility issues with pandas)
 - **Node.js 16+** (for frontend)
 - **npm or yarn** (package managers)
 - **MongoDB** (for database, can be local or cloud instance)
@@ -85,8 +87,6 @@ MONGODB_CONNECTION_STRING=mongodb://localhost:27017/
 MONGODB_DATABASE_NAME=smartbuy_dashboard
 ```
 
-For detailed MongoDB integration instructions, see [MONGODB_INTEGRATION.md](file:///d:/Projects/smart-buy-dash/MONGODB_INTEGRATION.md).
-
 ### 3. Frontend Setup (React + Vite)
 
 Open a new terminal window/tab (keep the backend running):
@@ -110,70 +110,3 @@ This project is configured for deployment on Render with separate services for f
    - `MONGODB_CONNECTION_STRING` - Your MongoDB connection string
    - `MONGODB_DATABASE_NAME` - Database name (should be `ctd`)
    - `VITE_API_URL` - The URL of your deployed backend service
-
-The [render.yaml](file:///d:/Projects/smart-buy-dash/render.yaml) file already contains the configuration for both services:
-- `smartbuy-dashboard-api` - The backend FastAPI service
-- `smartbuy-dashboard-frontend` - The frontend React static site
-
-### Manual Deployment
-
-If you prefer to deploy manually:
-
-#### Backend
-```bash
-cd backend
-pip install -r requirements.txt
-python main.py
-```
-
-#### Frontend
-```bash
-cd frontend
-npm install
-npm run build
-# Serve the dist/ directory with your preferred web server
-```
-
-## API Endpoints
-
-With the backend running, you can access these endpoints:
-
-### Authentication
-- `POST /auth/register` - Register a new user
-- `POST /auth/login` - Login with existing credentials
-
-### Projects
-- `POST /projects` - Create a new project
-- `GET /projects` - Get all projects
-- `GET /projects/{project_id}` - Get a specific project
-- `PUT /projects/{project_id}` - Update a project
-- `DELETE /projects/{project_id}` - Delete a project
-
-### Vendors
-- `GET /vendors?material={material}&location={location}` - Search vendors
-- `POST /vendors/finalize/{vendor_id}` - Finalize a vendor
-- `GET /vendors/finalized` - Get all finalized vendors
-
-### Materials & Predictions
-- `GET /projects/{project_id}/materials` - Get materials for a project
-- `GET /projects/{project_id}/predictions` - Get predictions for a project
-
-
-### Backend Modules
-
-The backend is organized into:
-
-- **main.py**: Core FastAPI application with all routes
-- **database/**: MongoDB connection and CRUD operations
-- **ml/**: Machine learning models for material prediction
-- **models/**: Data models and schemas
-- **utils/**: Utility functions
-
-
-## Contributing
-
-We welcome contributions to improve Smart Buy Dashboard! Please fork the repository and submit pull requests with your enhancements.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

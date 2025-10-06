@@ -6,7 +6,7 @@ services:
     startCommand: python backend/main.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.10
+        value: 3.11
       - key: MONGODB_CONNECTION_STRING
         sync: false
       - key: MONGODB_DATABASE_NAME
