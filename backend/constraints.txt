@@ -1,4 +1,7 @@
 # Force use of pre-compiled wheels to avoid compilation issues
-pandas==2.1.4
-scikit-learn==1.4.2
-numpy<2.0.0
+# These constraints are for development environments that need ML capabilities
+# For production deployment, use requirements-prod.txt which excludes ML packages
+
+# pandas==2.1.4
+# scikit-learn==1.4.2
+# numpy<2.0.0

@@ -2,11 +2,11 @@ services:
   - type: web
     name: smartbuy-dashboard-api
     env: python
-    buildCommand: pip install -r backend/requirements-prod.txt
+    buildCommand: pip install --upgrade pip && pip install -r backend/requirements-prod.txt
     startCommand: python backend/main.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.11.10
       - key: MONGODB_CONNECTION_STRING
         sync: false
       - key: MONGODB_DATABASE_NAME

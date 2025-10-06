@@ -15,7 +15,7 @@ source venv/bin/activate
 
 # Install dependencies
 echo "Installing dependencies..."
-pip install -r requirements.txt
+pip install -r requirements-prod.txt
 
 # Start the server
 echo "Starting FastAPI server..."

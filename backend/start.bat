@@ -14,7 +14,7 @@ call venv\Scripts\activate.bat
 
 REM Install dependencies
 echo Installing dependencies...
-pip install -r requirements.txt
+pip install -r requirements-prod.txt
 
 REM Start the server
 echo Starting FastAPI server...
