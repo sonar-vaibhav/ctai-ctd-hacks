@@ -125,7 +125,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     created_at: datetime
-    last_login: Optional[datetime]
+    last_login: Optional[datetime] = None
 
 
 # IndiaMART Scraper Class
