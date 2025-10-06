@@ -1,0 +1,4 @@
+# Force use of pre-compiled wheels to avoid compilation issues
+pandas==2.1.4
+scikit-learn==1.4.2
+numpy<2.0.0

@@ -2,7 +2,7 @@ services:
   - type: web
     name: smartbuy-dashboard-api
     env: python
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: pip install -r backend/requirements-prod.txt
     startCommand: python backend/main.py
     envVars:
       - key: PYTHON_VERSION
