@@ -18,14 +18,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Project } from "@/data/mockData";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
 
 interface NewProjectModalProps {
-  onCreateProject: (project: Omit<Project, 'id' | 'createdAt' | 'timeline'>) => void;
+  onCreateProject: (project: Omit<Project, 'id' | 'createdAt' | 'timeline' | 'isPredicted'>) => void;
 }
 
 export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: '',
@@ -63,43 +83,72 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
     'West Bengal',
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      return;
+    }
 
     if (!formData.name || !formData.type || !formData.size || !formData.state || !formData.city || !formData.volume) {
       return;
     }
 
-    onCreateProject({
-      name: formData.name,
-      type: formData.type,
-      size: formData.size,
-      state: formData.state,
-      city: formData.city,
-      volume: parseInt(formData.volume),
-      status: formData.status,
-    });
+    setIsSubmitting(true);
 
-    // Reset form
-    setFormData({
-      name: '',
-      type: '',
-      size: '',
-      state: '',
-      city: '',
-      volume: '',
-      status: 'planning',
-    });
+    try {
+      await onCreateProject({
+        name: formData.name,
+        type: formData.type,
+        size: formData.size,
+        state: formData.state,
+        city: formData.city,
+        volume: parseInt(formData.volume),
+        status: formData.status,
+      });
 
-    setIsOpen(false);
+      // Reset form
+      setFormData({
+        name: '',
+        type: '',
+        size: '',
+        state: '',
+        city: '',
+        volume: '',
+        status: 'planning',
+      });
+    } catch (error) {
+      console.error("Error creating project:", error);
+    } finally {
+      setIsSubmitting(false);
+      setIsOpen(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleOpenChange = (open: boolean) => {
+    // Reset form when dialog is closed
+    if (!open) {
+      setFormData({
+        name: '',
+        type: '',
+        size: '',
+        state: '',
+        city: '',
+        volume: '',
+        status: 'planning',
+      });
+      setIsSubmitting(false);
+    }
+    setIsOpen(open);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           className="w-full gradient-button gap-2 h-11 shadow-lg hover:shadow-xl transition-all duration-200"
@@ -212,12 +261,17 @@ export function NewProjectModal({ onCreateProject }: NewProjectModalProps) {
               type="button"
               variant="outline"
               className="flex-1"
-              onClick={() => setIsOpen(false)}
+              onClick={() => handleOpenChange(false)}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" className="flex-1 gradient-button">
-              Create Project
+            <Button 
+              type="submit" 
+              className="flex-1 gradient-button"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Creating..." : "Create Project"}
             </Button>
           </div>
         </motion.form>

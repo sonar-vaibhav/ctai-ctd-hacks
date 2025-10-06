@@ -1,5 +1,10 @@
 import { Navigate } from "react-router-dom";
-import { isAuthenticated } from "@/pages/Login";
+
+// Check if user is authenticated
+const isAuthenticated = () => {
+  const user = localStorage.getItem("user");
+  return !!user;
+};
 
 type ProtectedRouteProps = {
   children: React.ReactElement;
@@ -7,7 +12,7 @@ type ProtectedRouteProps = {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (!isAuthenticated()) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
   return children;
 };

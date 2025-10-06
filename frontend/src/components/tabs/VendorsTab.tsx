@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, MapPin, Mail, Phone, Star, MessageCircle, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
+import { Search, MapPin, Mail, Phone, Star, MessageCircle, CheckCircle2, Loader2, RefreshCw, Award, Shield, Clock, ExternalLink, Verified, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Project, mockMaterials } from "@/data/mockData";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -12,14 +12,36 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { useVendors } from "@/hooks/useVendors";
-import { Vendor } from "@/services/api";
+import { Vendor, apiService } from "@/services/api";
+import { type PredictionResponse } from "@/services/api";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
 
 interface VendorsTabProps {
   project: Project;
   showPredictionResults?: boolean;
+  predictionData?: PredictionResponse | null;
 }
 
-export function VendorsTab({ project, showPredictionResults = false }: VendorsTabProps) {
+export function VendorsTab({ project, showPredictionResults = false, predictionData }: VendorsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaterial, setSelectedMaterial] = useState<string>("all");
   const [locationFilter, setLocationFilter] = useState<string>("");
@@ -43,7 +65,22 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
   // Use the new vendor hook
   const { vendors, loading, error, searchVendors, finalizeVendor, updateVendor } = useVendors();
 
-  const materials = useMemo(() => mockMaterials, []);
+  const materials = useMemo(() => {
+    // Use predicted materials if available, otherwise show empty array
+    if (predictionData?.materials) {
+      return predictionData.materials.map(m => ({
+        id: m.id,
+        name: m.name,
+        quantity: m.quantity,
+        unit: m.unit,
+        cost: m.cost,
+        category: m.category,
+        vendorAssigned: m.vendorAssigned // Include complete vendor assignment info
+      }));
+    }
+    return [];
+  }, [predictionData]);
+  
   const materialTypes = useMemo(() => Array.from(new Set(materials.map(m => m.name))), [materials]);
 
   const filteredMaterials = useMemo(() => {
@@ -53,21 +90,61 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
     );
   }, [materials, searchTerm, selectedMaterial]);
 
+  const refreshVendorData = async () => {
+    if (!project.id) return;
+    
+    try {
+      // Load finalized vendors from the API
+      const projectVendors = await apiService.getProjectVendors(project.id);
+      
+      // Convert to the format expected by the component
+      const finalizedVendors: Record<string, Vendor | null> = {};
+      projectVendors.forEach(vendor => {
+        if (vendor.item_name) {
+          finalizedVendors[vendor.item_name] = {
+            id: vendor.id,
+            vendor: vendor.vendor || '',
+            vendor_website: vendor.vendor_website,
+            rating: vendor.rating,
+            rating_count: vendor.rating_count,
+            item_name: vendor.item_name,
+            item_price: vendor.item_price,
+            item_unit: vendor.item_unit,
+            gst_verified: vendor.gst_verified,
+            trustseal_verified: vendor.trustseal_verified,
+            member_since: vendor.member_since,
+            location: vendor.location,
+            contact: vendor.contact,
+            email: vendor.email,
+            url: vendor.url,
+            finalized: true,
+            payment_status: vendor.payment_status,
+            delivery_status: vendor.delivery_status,
+            notes: vendor.notes
+          };
+        }
+      });
+      
+      setFinalizedByMaterial(finalizedVendors);
+    } catch (error) {
+      console.error('Error refreshing project vendors:', error);
+    }
+  };
+
   // Load finalized vendors on component mount
   useEffect(() => {
-    const loadFinalizedVendors = async () => {
-      try {
-        // This would load finalized vendors from the API
-        // For now, we'll use localStorage as fallback
-        const finalizedVendors = JSON.parse(localStorage.getItem('finalizedVendors') || '{}');
-        setFinalizedByMaterial(finalizedVendors);
-      } catch (error) {
-        console.error('Error loading finalized vendors:', error);
-      }
-    };
-    
-    loadFinalizedVendors();
-  }, []);
+    // Load vendors when project ID is available
+    if (project.id) {
+      refreshVendorData();
+    }
+  }, [project.id]);
+
+  // Refresh vendor data when materials change
+  useEffect(() => {
+    if (project.id && materials.length > 0) {
+      refreshVendorData();
+    }
+  }, [project.id, materials.length, predictionData?.materials?.length]);
 
   const renderStars = (rating: number) => Array.from({ length: 5 }, (_, i) => (
     <Star key={i} className={`h-3 w-3 ${i < rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
@@ -78,9 +155,10 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
       // Finalize vendor via API
       await finalizeVendor(vendor.id);
       
+      // Ensure only one vendor per material by replacing any existing finalized vendor
       setFinalizedByMaterial(prev => ({ ...prev, [material]: vendor }));
-      const materialData = mockMaterials.find(m => m.name === material);
-      const unitPrice = Math.floor(materialData?.cost / (materialData?.quantity || 1));
+      const materialData = materials.find(m => m.name === material);
+      const unitPrice = Math.floor((materialData?.cost || 0) / (materialData?.quantity || 1));
       setManagementData(prev => ({
         ...prev,
         [material]: prev[material] ?? { 
@@ -96,6 +174,61 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
         },
       }));
       
+      // Save vendor to MongoDB with project and material associations
+      try {
+        const saveResult = await apiService.saveVendor({
+          project_id: project.id,  // Associate with current project
+          material_name: material,  // Associate with current material
+          name: vendor.vendor,
+          website: vendor.vendor_website,
+          rating: vendor.rating ? parseFloat(vendor.rating) : null,
+          rating_count: vendor.rating_count ? parseInt(vendor.rating_count) : null,
+          item_name: vendor.item_name,
+          item_price: vendor.item_price,
+          item_unit: vendor.item_unit,
+          gst_verified: vendor.gst_verified || false,
+          trustseal_verified: vendor.trustseal_verified || false,
+          member_since: vendor.member_since,
+          location: vendor.location,
+          contact: vendor.contact,
+          email: vendor.email
+        });
+        
+        if (saveResult.success) {
+          toast({
+            title: "Vendor saved",
+            description: `Vendor ${vendor.vendor} saved for ${material}`,
+            variant: "default"
+          });
+          
+          // Refresh vendor data and predictions to ensure consistency
+          refreshVendorData();
+          
+          // Also refresh predictions to update vendor assignment status
+          if (project.id) {
+            try {
+              const updatedPredictions = await apiService.getPredictions(project.id);
+              // We could update the parent component state here if needed
+            } catch (error) {
+              console.error('Error refreshing predictions:', error);
+            }
+          }
+        } else {
+          toast({
+            title: "Save failed",
+            description: "Failed to save vendor to database",
+            variant: "destructive"
+          });
+        }
+      } catch (saveError) {
+        console.error('Error saving vendor to MongoDB:', saveError);
+        toast({
+          title: "Save failed",
+          description: "Failed to save vendor to database",
+          variant: "destructive"
+        });
+      }
+      
       // Store finalized vendor data for ProcurementTimeline integration
       const finalizedVendors = JSON.parse(localStorage.getItem('finalizedVendors') || '{}');
       finalizedVendors[material] = {
@@ -107,6 +240,11 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
       localStorage.setItem('finalizedVendors', JSON.stringify(finalizedVendors));
     } catch (error) {
       console.error('Error finalizing vendor:', error);
+      toast({
+        title: "Error",
+        description: "Failed to finalize vendor",
+        variant: "destructive"
+      });
     }
   };
 
@@ -160,6 +298,28 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
     toast({ title: "Payment marked as completed", description: `Full payment recorded for ${material}` });
   };
 
+  // Show a message when there are no predicted materials
+  if (showPredictionResults && (!predictionData || !predictionData.materials || predictionData.materials.length === 0)) {
+    return (
+      <div className="tab-content">
+        <Card className="dashboard-card">
+          <CardContent className="p-8 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Search className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">No Predicted Materials Found</h3>
+            <p className="text-muted-foreground mb-4">
+              Please complete the project prediction to see materials and find vendors.
+            </p>
+            <Button onClick={() => window.location.hash = "#prediction"}>
+              Go to Prediction Tab
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="tab-content">
       {/* AI Prediction Results Banner */}
@@ -175,9 +335,12 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                 <Star className="h-4 w-4" />
                 <span className="font-medium">AI Prediction Results</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Based on your project requirements, we've identified the best vendors for your materials.
-              </p>
+              <div className="text-sm text-muted-foreground mt-1">
+                {predictionData 
+                  ? `Found ${materials.length} predicted materials. Search for vendors to get real-time quotes from IndiaMART.`
+                  : "Based on your project requirements, we've identified the best vendors for your materials."
+                }
+              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -190,6 +353,14 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
           <CardDescription>Track materials, compare vendors, and finalize selections</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground">
+              {predictionData 
+                ? `Showing ${materials.length} materials from AI prediction. Click "Find Vendors" to search IndiaMART for each material.`
+                : "Track materials, compare vendors, and finalize selections"
+              }
+            </p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -217,9 +388,9 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
               >
                 All Materials
               </Button>
-              {materialTypes.slice(0, 4).map((material) => (
+              {materialTypes.slice(0, 4).map((material, index) => (
                 <Button
-                  key={material}
+                  key={`material-filter-${material}-${index}`}
                   variant={selectedMaterial === material ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedMaterial(material)}
@@ -228,6 +399,14 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                   {material}
                 </Button>
               ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshVendorData}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -242,23 +421,30 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                 <TableHead>Material / Equipment</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Unit</TableHead>
+                <TableHead>Unit Cost (₹)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMaterials.map((m, idx) => {
-                const finalizedVendor = finalizedByMaterial[m.name] || null;
+                // Check if vendor is assigned either through backend data or local state
+                const vendorAssigned = m.vendorAssigned;
+                const vendor = vendorAssigned ? vendorAssigned : finalizedByMaterial[m.name] || null;
+                
+                const hasVendorAssigned = !!vendor;
+                
                 return (
-                  <motion.tr key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.03 }} className={finalizedVendor ? "bg-emerald-50 dark:bg-emerald-900/20" : undefined}>
+                  <motion.tr key={`material-${m.id}-${m.name}-${idx}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx * 0.03 }} className={hasVendorAssigned ? "bg-emerald-50 dark:bg-emerald-900/20" : undefined}>
                     <TableCell className="font-medium flex items-center gap-2">
-                      {finalizedVendor && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                      {hasVendorAssigned && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
                       {m.name}
                     </TableCell>
                     <TableCell>{m.quantity}</TableCell>
                     <TableCell>{m.unit}</TableCell>
+                    <TableCell>₹{Math.round((m.cost || 0) / (m.quantity || 1)).toLocaleString('en-IN')}</TableCell>
                     <TableCell>
-                      {finalizedVendor ? (
+                      {hasVendorAssigned ? (
                         <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
                           <CheckCircle2 className="h-3 w-3" /> Selected
                         </span>
@@ -266,27 +452,43 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                         <span className="text-xs text-muted-foreground">Not selected</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => handleSearchVendors(m.name)}
-                        disabled={loading}
-                      >
-                        {loading ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                        )}
-                        {loading ? 'Searching...' : 'Find Vendors'}
-                      </Button>
-                      {finalizedVendor && (
-                        <>
-                          <Button size="sm" variant="secondary" onClick={() => setContactVendor(finalizedVendor)}>
+                    <TableCell className="text-right">
+                      {hasVendorAssigned ? (
+                        // Show actions for finalized vendors only
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => {
+                              setSeeVendorsFor(m.name);
+                              // Load the finalized vendor into the vendors array for display
+                              searchVendors({ material: m.name, location: locationFilter || undefined });
+                            }}
+                            disabled={loading}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Vendor
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setContactVendor(vendor)}>
                             <MessageCircle className="h-4 w-4 mr-1" /> Contact Vendor
                           </Button>
-                          <Button size="sm" className="ml-2" onClick={() => setManageMaterial(m.name)}>Manage</Button>
-                        </>
+                          <Button size="sm" onClick={() => setManageMaterial(m.name)}>Manage</Button>
+                        </div>
+                      ) : (
+                        // Show "Find Vendors" button when no vendor is finalized
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleSearchVendors(m.name)}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                          )}
+                          {loading ? 'Searching...' : 'Find Vendors'}
+                        </Button>
                       )}
                     </TableCell>
                   </motion.tr>
@@ -294,12 +496,20 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
               })}
             </TableBody>
           </Table>
+          
+          {materials.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No materials to display</p>
+              <p className="text-sm mt-1">Complete project prediction to see materials</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Vendor selection modal per material */}
       <Dialog open={!!seeVendorsFor} onOpenChange={(open) => !open && setSeeVendorsFor(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vendors for {seeVendorsFor}</DialogTitle>
             <DialogDescription>
@@ -319,68 +529,181 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
               <span className="ml-2">Searching IndiaMART for vendors...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {vendors.map((vendor) => (
-                <Card key={vendor.id} className="dashboard-card">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">{vendor.vendor}</CardTitle>
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className="text-xs text-muted-foreground">
-                            {vendor.finalized ? 'Finalized' : 'Available'}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {vendors.map((vendor, index) => (
+                <motion.div
+                  key={`vendor-${vendor.id || index}-${vendor.vendor}-${vendor.item_name || 'no-item'}-${index}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  className="flex"
+                >
+                  <Card className="dashboard-card h-full hover:shadow-lg transition-all duration-300 border-l-4 border-l-primary/30 flex-1">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg font-semibold leading-tight line-clamp-2">
+                            {vendor.vendor}
+                          </CardTitle>
+                          {vendor.item_name && (
+                            <CardDescription className="mt-1 text-sm font-medium text-primary">
+                              {vendor.item_name}
+                            </CardDescription>
+                          )}
+                        </div>
+                        {(vendor.gst_verified || vendor.trustseal_verified) && (
+                          <div className="flex flex-col gap-1">
+                            {vendor.gst_verified && (
+                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                <Shield className="h-3 w-3 mr-1" />
+                                GST
+                              </Badge>
+                            )}
+                            {vendor.trustseal_verified && (
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                <Verified className="h-3 w-3 mr-1" />
+                                TrustSEAL
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      {/* Rating and Experience */}
+                      <div className="flex items-center justify-between">
+                        {vendor.rating && (
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center">
+                              {Array.from({ length: 5 }, (_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${
+                                    i < Math.floor(parseFloat(vendor.rating || '0'))
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : 'text-gray-300'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium">{vendor.rating}</span>
+                            {vendor.rating_count && (
+                              <span className="text-xs text-muted-foreground">({vendor.rating_count})</span>
+                            )}
+                          </div>
+                        )}
+                        {vendor.member_since && (
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {vendor.member_since}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Price Information */}
+                      {vendor.item_price && (
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Price</span>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-primary">
+                                ₹{vendor.item_price}
+                              </div>
+                              {vendor.item_unit && (
+                                <div className="text-xs text-muted-foreground">
+                                  {vendor.item_unit}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Location */}
+                      {vendor.location && (
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <span className="text-sm text-muted-foreground line-clamp-2">
+                            {vendor.location}
                           </span>
                         </div>
+                      )}
+
+                      {/* Contact Information */}
+                      <div className="space-y-2">
+                        {vendor.contact && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-mono">{vendor.contact}</span>
+                          </div>
+                        )}
+                        {vendor.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm break-all">{vendor.email}</span>
+                          </div>
+                        )}
                       </div>
-                      <Button size="sm" variant="outline" onClick={() => setContactVendor(vendor)}>
-                        <MessageCircle className="h-4 w-4 mr-1" /> Contact
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <MapPin className="h-3 w-3" /> {vendor.location}
-                    </div>
-                    {vendor.contact && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Phone className="h-3 w-3" /> {vendor.contact}
-                      </div>
-                    )}
-                    {vendor.email && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Mail className="h-3 w-3" /> {vendor.email}
-                      </div>
-                    )}
-                    {vendor.url && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-2">
-                        <a 
-                          href={vendor.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+
+                      {/* Actions */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => setContactVendor(vendor)}
                         >
-                          View on IndiaMART
-                        </a>
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Contact
+                        </Button>
+                        
+                        {vendor.vendor_website && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => window.open(vendor.vendor_website, '_blank')}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Visit
+                          </Button>
+                        )}
+                        
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          disabled={vendor.finalized}
+                          onClick={() => openFinalize(seeVendorsFor!, vendor)}
+                        >
+                          {vendor.finalized ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Selected
+                            </>
+                          ) : (
+                            <>
+                              <Award className="h-4 w-4 mr-2" />
+                              Select
+                            </>
+                          )}
+                        </Button>
                       </div>
-                    )}
-                    <div className="flex justify-end">
-                      <Button
-                        size="sm"
-                        disabled={vendor.finalized}
-                        onClick={() => openFinalize(seeVendorsFor!, vendor)}
-                      >
-                        {vendor.finalized ? "Finalized" : "Finalize"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
-              
-              {vendors.length === 0 && !loading && (
-                <div className="col-span-2 text-center py-8 text-muted-foreground">
-                  No vendors found for {seeVendorsFor}. Try adjusting your search criteria.
-                </div>
-              )}
+            </div>
+          )}
+          
+          {vendors.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground mb-2">
+                No vendors found for <span className="font-medium">{seeVendorsFor}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Try adjusting your search criteria or check back later.
+              </p>
             </div>
           )}
         </DialogContent>
@@ -392,7 +715,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
           {contactVendor && (
             <>
               <DialogHeader>
-                <DialogTitle>Contact {contactVendor.name}</DialogTitle>
+                <DialogTitle>Contact {contactVendor.vendor}</DialogTitle>
                 <DialogDescription>Send a message or view contact details</DialogDescription>
               </DialogHeader>
               <div className="space-y-3 text-sm">
@@ -415,7 +738,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
           {manageMaterial && (() => {
             const vendor = finalizedByMaterial[manageMaterial!];
             if (!vendor) return null;
-            const m = mockMaterials.find(mm => mm.name === manageMaterial);
+            const m = materials.find(mm => mm.name === manageMaterial);
             const mgmt = managementData[manageMaterial] ?? { 
               paymentStatus: "Pending", 
               deliveryDate: null, 
@@ -427,7 +750,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
               notes: "", 
               logs: [] 
             };
-            const unitPrice = m ? Math.floor(m.cost / m.quantity) : 0;
+            const unitPrice = m ? Math.floor((m.cost || 0) / (m.quantity || 1)) : 0;
             const paymentDue = mgmt.totalAmount - mgmt.paymentMade;
             
             return (
@@ -437,7 +760,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                     <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                     Manage {manageMaterial}
                   </DialogTitle>
-                  <DialogDescription>Vendor: {vendor.name}</DialogDescription>
+                  <DialogDescription>Vendor: {vendor.vendor}</DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-6">
@@ -449,7 +772,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Vendor Name</Label>
-                        <div className="text-base font-medium">{vendor.name}</div>
+                        <div className="text-base font-medium">{vendor.vendor}</div>
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Material / Equipment</Label>
@@ -606,7 +929,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                         {mgmt.logs.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No delivery logs yet</div>}
                         {mgmt.logs.map((log, i) => (
                           <motion.div 
-                            key={i} 
+                            key={`log-${manageMaterial}-${i}-${log.date.getTime()}-${log.quantity}`} 
                             initial={{ opacity: 0, y: 10 }} 
                             animate={{ opacity: 1, y: 0 }}
                             className="flex items-center justify-between border rounded-md p-3 bg-muted/50"
@@ -662,7 +985,7 @@ export function VendorsTab({ project, showPredictionResults = false }: VendorsTa
                                 return newState;
                               });
                               setManageMaterial(null);
-                              toast({ title: "Vendor removed", description: `${vendor.name} removed from ${manageMaterial}` });
+                              toast({ title: "Vendor removed", description: `${vendor.vendor} removed from ${manageMaterial}` });
                             }
                           }}
                         >

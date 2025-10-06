@@ -1,7 +1,26 @@
 import { motion } from "framer-motion";
 import { Calendar, IndianRupee, MapPin, Building } from "lucide-react";
-import { Project } from "@/data/mockData";
 import { format } from "date-fns";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
 
 interface ProjectCardProps {
   project: Project;

@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Project, mockProjects } from "@/data/mockData";
 import { Sidebar } from "./Sidebar";
 import { ProjectTabs } from "./ProjectTabs";
 import { ThemeToggle } from "./ThemeToggle";
@@ -9,52 +8,126 @@ import { useNavigate } from "react-router-dom";
 import { logout } from "@/pages/Login";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FolderOpen, TrendingUp, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { apiService } from "@/services/api";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(
-    mockProjects.length > 0 ? mockProjects[0] : null
-  );
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const handleCreateProject = async (newProjectData: Omit<Project, 'id' | 'createdAt' | 'timeline'>) => {
+  // Fetch projects from database on component mount
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setIsInitialLoading(true);
+      console.log("Fetching projects from API...");
+      const fetchedProjects = await apiService.getAllProjects();
+      console.log(`Fetched ${fetchedProjects.length} projects from API`);
+      
+      // Convert API response to Project format
+      const convertedProjects = fetchedProjects.map((project: any) => ({
+        id: project.id,
+        name: project.name,
+        type: project.project_type,
+        size: project.size,
+        state: project.state,
+        city: project.city,
+        volume: project.volume,
+        status: project.status === 'active' || project.status === 'completed' || project.status === 'planning' ? project.status : 'planning',
+        isPredicted: project.is_predicted || false,
+        createdAt: new Date(project.created_at || Date.now()),
+        timeline: {
+          design: {
+            start: new Date(),
+            end: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+            status: 'pending' as const
+          },
+          development: {
+            start: new Date(Date.now() + 61 * 24 * 60 * 60 * 1000),
+            end: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
+            status: 'pending' as const
+          },
+          procurement: {
+            start: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            end: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+            status: 'pending' as const
+          },
+          installation: {
+            start: new Date(Date.now() + 181 * 24 * 60 * 60 * 1000),
+            end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            status: 'pending' as const
+          },
+        },
+      }));
+
+      setProjects(convertedProjects);
+      
+      // Select the first project if none is selected
+      if (convertedProjects.length > 0 && !selectedProject) {
+        setSelectedProject(convertedProjects[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      // Set empty array if API fails
+      setProjects([]);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  };
+
+  const handleCreateProject = async (newProjectData: Omit<Project, 'id' | 'createdAt' | 'timeline' | 'isPredicted'>) => {
     setIsLoading(true);
+    console.log("Creating new project:", newProjectData);
 
-    // Simulate project creation delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Convert project data to API format
+      const projectRequest = {
+        projectType: newProjectData.type,
+        size: newProjectData.size,
+        state: newProjectData.state,
+        city: newProjectData.city,
+        volume: newProjectData.volume.toString()
+      };
 
-    const newProject: Project = {
-      ...newProjectData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      timeline: {
-        design: {
-          start: new Date(),
-          end: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
-          status: 'pending'
-        },
-        development: {
-          start: new Date(Date.now() + 61 * 24 * 60 * 60 * 1000),
-          end: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000),
-          status: 'pending'
-        },
-        procurement: {
-          start: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-          end: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-          status: 'pending'
-        },
-        installation: {
-          start: new Date(Date.now() + 181 * 24 * 60 * 60 * 1000),
-          end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          status: 'pending'
-        },
-      },
-    };
-
-    setProjects(prev => [newProject, ...prev]);
-    setSelectedProject(newProject);
-    setIsLoading(false);
+      // Create project in database
+      const response = await apiService.createProject(projectRequest);
+      console.log("Project creation response:", response);
+      
+      if (response.success) {
+        // Fetch updated projects list
+        console.log("Fetching updated projects list...");
+        await fetchProjects();
+      }
+    } catch (error) {
+      console.error("Error creating project:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSelectProject = async (project: Project) => {
@@ -66,6 +139,17 @@ export function Dashboard() {
     setSelectedProject(project);
     setIsLoading(false);
   };
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background grid grid-cols-1 lg:grid-cols-[320px_1fr]">
@@ -88,10 +172,10 @@ export function Dashboard() {
               <h1 className="text-xl font-semibold">ProcureAI Dashboard</h1>
             </div>
             <div className="hidden lg:block">
-              <h1 className="text-2xl font-bold">AI Procurement Management Platform</h1>
+              {/* <h1 className="text-2xl font-bold">AI Procurement Management Platform</h1>
               <p className="text-muted-foreground text-sm">
                 Optimize your procurement with intelligent insights and automation
-              </p>
+              </p> */}
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
@@ -134,7 +218,7 @@ export function Dashboard() {
 }
 
 interface EmptyStateProps {
-  onCreateProject: (project: Omit<Project, 'id' | 'createdAt' | 'timeline'>) => void;
+  onCreateProject: (project: Omit<Project, 'id' | 'createdAt' | 'timeline' | 'isPredicted'>) => void;
 }
 
 function EmptyState({ onCreateProject }: EmptyStateProps) {

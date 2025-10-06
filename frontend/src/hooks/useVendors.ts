@@ -54,7 +54,8 @@ export function useVendors(): UseVendorsReturn {
 
   const finalizeVendor = useCallback(async (vendorId: number) => {
     try {
-      await apiService.finalizeVendor(vendorId);
+      // Use updateVendor to set finalized status instead of separate finalize endpoint
+      await updateVendor(vendorId, { finalized: true });
       
       // Update local state
       setVendors(prev => 

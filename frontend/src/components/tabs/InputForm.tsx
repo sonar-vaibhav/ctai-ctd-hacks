@@ -5,13 +5,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Project, mockApiCall } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { apiService, type PredictionResponse } from "@/services/api";
 import { Loader2, Send } from "lucide-react";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
 
 interface InputFormProps {
   project: Project;
-  onPredictionComplete?: () => void;
+  onPredictionComplete?: (predictionData: PredictionResponse) => void;
 }
 
 export function InputForm({ project, onPredictionComplete }: InputFormProps) {
@@ -57,25 +77,30 @@ export function InputForm({ project, onPredictionComplete }: InputFormProps) {
     setIsLoading(true);
 
     try {
-      const result = await mockApiCall('/predict', formData);
+      // Call the real backend API for predictions using existing project data
+      const result = await apiService.predictMaterials(formData);
 
       if (result.success) {
+        // Save prediction to MongoDB for the existing project
+        await apiService.savePrediction(project.id, result);
+        
         toast({
           title: "Prediction Complete",
-          description: `Analysis generated for ${formData.projectType}. Check the Material Prediction tab for results.`,
+          description: `Analysis generated for ${formData.projectType}. Found ${result.materials.length} materials with ₹${(result.total_cost / 10000000).toFixed(2)} Cr total cost.`,
         });
 
-        // Trigger prediction completion callback
+        // Trigger prediction completion callback with actual data
         if (onPredictionComplete) {
-          onPredictionComplete();
+          onPredictionComplete(result);
         }
       } else {
         throw new Error('Prediction failed');
       }
     } catch (error) {
+      console.error('Prediction error:', error);
       toast({
         title: "Prediction Failed",
-        description: "Unable to generate material predictions. Please try again.",
+        description: error instanceof Error ? error.message : "Unable to generate material predictions. Please check if the backend is running and try again.",
         variant: "destructive",
       });
     } finally {
@@ -185,12 +210,8 @@ export function InputForm({ project, onPredictionComplete }: InputFormProps) {
               </div>
             </div>
 
-            <div className="pt-4">
-              <Button
-                type="submit"
-                className="w-full md:w-auto gradient-button"
-                disabled={isLoading}
-              >
+            <div className="flex justify-end pt-4">
+              <Button type="submit" disabled={isLoading} className="gradient-button">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -207,7 +228,6 @@ export function InputForm({ project, onPredictionComplete }: InputFormProps) {
           </motion.form>
         </CardContent>
       </Card>
-
     </div>
   );
 }

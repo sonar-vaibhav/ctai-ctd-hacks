@@ -2,9 +2,28 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, FolderOpen, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Project } from "@/data/mockData";
 import { ProjectCard } from "./ProjectCard";
 import { NewProjectModal } from "./NewProjectModal";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
 
 interface SidebarProps {
   projects: Project[];
@@ -114,6 +133,20 @@ export function Sidebar({ projects, selectedProject, onSelectProject, onCreatePr
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Logout Button */}
+          <div className="p-6 border-t border-sidebar-border">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                localStorage.removeItem("user");
+                window.location.href = "/login";
+              }}
+            >
+              Logout
+            </Button>
           </div>
         </div>
       </motion.aside>

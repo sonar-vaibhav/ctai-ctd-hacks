@@ -4,11 +4,27 @@ import { Send, Bot, User, Loader2, TrendingUp, Calendar, Package } from "lucide-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Project, mockChatMessages, mockApiCall } from "@/data/mockData";
 import { format } from "date-fns";
+import { mockApiCall } from "@/data/mockData";
 
-interface ChatbotPanelProps {
-  project: Project;
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
 }
 
 interface ChatMessage {
@@ -17,6 +33,32 @@ interface ChatMessage {
   isUser: boolean;
   timestamp: Date;
 }
+
+interface ChatbotPanelProps {
+  project: Project;
+}
+
+// Define mock chat messages locally since we removed them from mockData
+const mockChatMessages: ChatMessage[] = [
+  {
+    id: '1',
+    message: 'Hello! I can help you with procurement planning and material optimization. What would you like to know?',
+    isUser: false,
+    timestamp: new Date('2024-01-15T10:00:00'),
+  },
+  {
+    id: '2',
+    message: 'What are the most cost-effective alternatives for structural steel in my project?',
+    isUser: true,
+    timestamp: new Date('2024-01-15T10:01:00'),
+  },
+  {
+    id: '3',
+    message: 'Based on current market trends, I recommend ordering steel materials 2 weeks earlier than planned due to supply chain constraints.',
+    isUser: false,
+    timestamp: new Date('2024-01-15T10:01:30'),
+  },
+];
 
 export function ChatbotPanel({ project }: ChatbotPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
@@ -204,7 +246,6 @@ export function ChatbotPanel({ project }: ChatbotPanelProps) {
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }

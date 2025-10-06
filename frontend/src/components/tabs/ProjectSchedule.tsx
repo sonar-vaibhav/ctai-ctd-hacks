@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Project, mockProcurementItems } from "@/data/mockData";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, endOfDay, parseISO, isValid, addDays } from "date-fns";
 import {
   CheckCircle,
@@ -34,6 +33,66 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+
+// Define the Project interface locally since we removed it from mockData
+interface Project {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  state: string;
+  city: string;
+  volume: number;
+  status: 'active' | 'completed' | 'planning';
+  isPredicted: boolean;
+  createdAt: Date;
+  timeline: {
+    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
+  };
+}
+
+// Define mock procurement items locally since we removed them from mockData
+const mockProcurementItems = [
+  {
+    id: '1',
+    material: 'Structural Steel',
+    orderBy: new Date('2025-08-25'),
+    deliveryStart: new Date('2025-09-10'),
+    deliveryEnd: new Date('2025-09-25'),
+    status: 'critical',
+    vendor: 'Tata Steel Ltd.',
+  },
+  {
+    id: '2',
+    material: 'Concrete (M40)',
+    orderBy: new Date('2025-09-05'),
+    deliveryStart: new Date('2025-09-20'),
+    deliveryEnd: new Date('2025-10-05'),
+    status: 'on-track',
+    vendor: 'Ultratech Concrete Supplies',
+  },
+  {
+    id: '3',
+    material: 'Glass Curtain Wall',
+    orderBy: new Date('2025-10-01'),
+    deliveryStart: new Date('2025-10-20'),
+    deliveryEnd: new Date('2025-11-05'),
+    status: 'warning',
+    vendor: 'Saint-Gobain Glass India',
+  },
+  {
+    id: '4',
+    material: 'HVAC Systems',
+    orderBy: new Date('2025-11-10'),
+    deliveryStart: new Date('2025-12-01'),
+    deliveryEnd: new Date('2025-12-15'),
+    status: 'on-track',
+    vendor: 'Blue Star HVAC',
+  },
+];
 
 interface ProjectScheduleProps {
   project: Project;

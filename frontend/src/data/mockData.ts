@@ -1,23 +1,5 @@
 // Mock data for the AI Procurement Management Platform
 
-export interface Project {
-  id: string;
-  name: string;
-  type: string;
-  size: string;
-  state: string;
-  city: string;
-  volume: number;
-  status: 'active' | 'completed' | 'planning';
-  createdAt: Date;
-  timeline: {
-    design: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
-    development: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
-    procurement: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
-    installation: { start: Date; end: Date; status: 'completed' | 'in-progress' | 'pending' };
-  };
-}
-
 export interface Material {
   id: string;
   name: string;
@@ -53,61 +35,6 @@ export interface ChatMessage {
   isUser: boolean;
   timestamp: Date;
 }
-
-// Mock projects data
-export const mockProjects: Project[] = [
-  {
-    id: '1',
-    name: 'Mumbai Smart Office Tower',
-    type: 'Commercial Construction',
-    size: 'Large (>₹10Cr)',
-    state: 'Maharashtra',
-    city: 'Mumbai',
-    volume: 1250000000, // ₹125 Cr
-    status: 'active',
-    createdAt: new Date('2025-08-05'),
-    timeline: {
-      design: { start: new Date('2025-08-05'), end: new Date('2025-09-10'), status: 'completed' },
-      development: { start: new Date('2025-09-11'), end: new Date('2025-10-31'), status: 'in-progress' },
-      procurement: { start: new Date('2025-09-20'), end: new Date('2025-11-30'), status: 'pending' },
-      installation: { start: new Date('2025-12-01'), end: new Date('2025-12-31'), status: 'pending' },
-    },
-  },
-  {
-    id: '2',
-    name: 'Bengaluru Green Data Center',
-    type: 'Industrial Infrastructure',
-    size: 'Medium (₹1Cr–₹10Cr)',
-    state: 'Karnataka',
-    city: 'Bengaluru',
-    volume: 65000000, // ₹6.5 Cr
-    status: 'planning',
-    createdAt: new Date('2025-08-20'),
-    timeline: {
-      design: { start: new Date('2025-08-20'), end: new Date('2025-09-25'), status: 'in-progress' },
-      development: { start: new Date('2025-09-26'), end: new Date('2025-11-10'), status: 'pending' },
-      procurement: { start: new Date('2025-10-01'), end: new Date('2025-12-10'), status: 'pending' },
-      installation: { start: new Date('2025-12-11'), end: new Date('2025-12-31'), status: 'pending' },
-    },
-  },
-  {
-    id: '3',
-    name: 'Pune Residential Complex Phase 1',
-    type: 'Residential Development',
-    size: 'Small (<₹1Cr)',
-    state: 'Maharashtra',
-    city: 'Pune',
-    volume: 8500000, // ₹0.85 Cr
-    status: 'completed',
-    createdAt: new Date('2025-08-10'),
-    timeline: {
-      design: { start: new Date('2025-08-10'), end: new Date('2025-09-05'), status: 'completed' },
-      development: { start: new Date('2025-09-06'), end: new Date('2025-10-15'), status: 'completed' },
-      procurement: { start: new Date('2025-09-20'), end: new Date('2025-11-05'), status: 'completed' },
-      installation: { start: new Date('2025-11-06'), end: new Date('2025-12-15'), status: 'completed' },
-    },
-  },
-];
 
 // Mock materials prediction data
 export const mockMaterials: Material[] = [
@@ -226,7 +153,7 @@ export const mockChatMessages: ChatMessage[] = [
   },
   {
     id: '3',
-    message: 'Based on your project requirements, here are three alternatives:\n\n1. **Engineered Steel Beams** - 15% cost reduction\n2. **Composite Steel-Concrete** - 8% cost reduction, better fire resistance\n3. **Recycled Steel** - 25% cost reduction, environmentally friendly\n\nWould you like detailed specifications for any of these options?',
+    message: 'Based on current market trends, I recommend ordering steel materials 2 weeks earlier than planned due to supply chain constraints.',
     isUser: false,
     timestamp: new Date('2024-01-15T10:01:30'),
   },
