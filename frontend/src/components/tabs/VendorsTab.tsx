@@ -1052,13 +1052,95 @@ export function VendorsTab({ project, showPredictionResults = false, predictionD
                             onChange={(e) => setManagementData(prev => ({ ...prev, [manageMaterial]: { ...(prev[manageMaterial!] ?? { paymentStatus: "Pending", deliveryDate: null, deliveryStatus: "Not Started", agreementStatus: "Finalized", totalAmount: 0, paymentMade: 0, notes: "", logs: [] }), paymentDueDate: e.target.value ? new Date(e.target.value) : null } }))}
                           />
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <Input 
+                            type="date" 
+                            placeholder="Payment date"
+                            defaultValue={new Date().toISOString().split('T')[0]}
+                            className="w-full" 
+                          />
+                          <Input 
+                            type="number" 
+                            placeholder="Payment amount" 
+                            className="w-full" 
+                            max={paymentDue}
+                          />
+                          <Button 
+                            onClick={(e) => {
+                              const parentElement = e.currentTarget.parentElement;
+                              if (!parentElement) return;
+                              
+                              const dateInput = parentElement.children[0] as HTMLInputElement;
+                              const amountInput = parentElement.children[1] as HTMLInputElement;
+                              
+                              const amount = Number(amountInput.value);
+                              const dateStr = dateInput.value;
+                              
+                              if (!isNaN(amount) && amount > 0 && amount <= paymentDue && dateStr) {
+                                const paymentDate = new Date(dateStr);
+                                setManagementData(prev => ({
+                                  ...prev,
+                                  [manageMaterial]: {
+                                    ...(prev[manageMaterial] ?? { paymentStatus: "Pending", deliveryDate: null, deliveryStatus: "Not Started", agreementStatus: "Finalized", totalAmount: 0, paymentMade: 0, paymentDueDate: null, notes: "", logs: [] }),
+                                    paymentMade: (prev[manageMaterial]?.paymentMade || 0) + amount,
+                                    paymentStatus: amount + (prev[manageMaterial]?.paymentMade || 0) >= mgmt.totalAmount ? "Completed" : "Partially Paid"
+                                  }
+                                }));
+                                amountInput.value = "";
+                                toast({ title: "Payment recorded", description: `₹${amount.toLocaleString()} payment recorded for ${manageMaterial} on ${paymentDate.toDateString()}` });
+                              } else {
+                                toast({ 
+                                  title: "Invalid input", 
+                                  description: "Please enter a valid date and amount",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                            disabled={mgmt.paymentStatus === "Completed"}
+                            className="w-full"
+                          >
+                            Record Payment
+                          </Button>
+                        </div>
                         <Button 
                           onClick={() => markPaymentAsPaid(manageMaterial)}
                           disabled={mgmt.paymentStatus === "Completed"}
                           className="w-full"
+                          variant="outline"
                         >
-                          Mark Payment as Paid
+                          Mark Fully Paid
                         </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment History */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Payment History</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <div className="text-sm font-medium">Initial Total</div>
+                          <div className="text-sm">₹{mgmt.totalAmount.toLocaleString()}</div>
+                        </div>
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <div className="text-sm font-medium">Payments Made</div>
+                          <div className="text-sm text-emerald-600">₹{mgmt.paymentMade.toLocaleString()}</div>
+                        </div>
+                        <div className="flex items-center justify-between pb-2">
+                          <div className="text-sm font-medium">Balance Due</div>
+                          <div className="text-sm text-orange-600">₹{paymentDue.toLocaleString()}</div>
+                        </div>
+                        {mgmt.paymentMade > 0 && (
+                          <div className="pt-2">
+                            <div className="text-xs text-muted-foreground mb-1">Payment History:</div>
+                            <div className="text-xs bg-muted/50 p-2 rounded">
+                              Payment of ₹{mgmt.paymentMade.toLocaleString()} recorded
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -1090,43 +1172,67 @@ export function VendorsTab({ project, showPredictionResults = false, predictionD
                             key={`log-${manageMaterial}-${i}-${log.date.getTime()}-${log.quantity}`} 
                             initial={{ opacity: 0, y: 10 }} 
                             animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center justify-between border rounded-md p-3 bg-muted/50"
+                            className="border rounded-md p-3 bg-muted/50"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-between">
                               <div className="text-sm font-medium">{log.date.toDateString()}</div>
-                              <div className="text-sm">- {log.quantity} {m?.unit}</div>
-                              {log.note && <div className="text-xs text-muted-foreground">({log.note})</div>}
+                              <div className="text-sm text-muted-foreground">{log.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="text-sm">
+                                <span className="font-medium">{log.quantity}</span> {m?.unit}
+                              </div>
+                              {log.note && <div className="text-xs text-muted-foreground">- {log.note}</div>}
                             </div>
                           </motion.div>
                         ))}
-                        <div className="flex gap-2 items-center pt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 pt-2">
+                          <Input 
+                            type="date" 
+                            className="w-full" 
+                            defaultValue={new Date().toISOString().split('T')[0]}
+                          />
                           <Input 
                             type="number" 
-                            placeholder="Quantity delivered" 
-                            className="w-32" 
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && manageMaterial) {
-                                const qty = Number((e.target as HTMLInputElement).value);
-                                if (!isNaN(qty) && qty > 0) {
-                                  addDeliveryLog(manageMaterial, qty, new Date());
-                                  (e.target as HTMLInputElement).value = "";
-                                }
-                              }
-                            }} 
+                            placeholder="Quantity" 
+                            className="w-full" 
+                          />
+                          <Input 
+                            type="text" 
+                            placeholder="Note (optional)" 
+                            className="w-full" 
                           />
                           <Button 
                             size="sm" 
                             onClick={(e) => {
                               if (!manageMaterial) return;
-                              const input = (e.currentTarget.previousSibling as HTMLInputElement);
-                              const qty = Number(input.value);
-                              if (!isNaN(qty) && qty > 0) {
-                                addDeliveryLog(manageMaterial, qty, new Date());
-                                input.value = "";
+                              const parentElement = e.currentTarget.parentElement;
+                              if (!parentElement) return;
+                              
+                              const dateInput = parentElement.children[0] as HTMLInputElement;
+                              const quantityInput = parentElement.children[1] as HTMLInputElement;
+                              const noteInput = parentElement.children[2] as HTMLInputElement;
+                              
+                              const qty = Number(quantityInput.value);
+                              const note = noteInput.value;
+                              const dateStr = dateInput.value;
+                              
+                              if (!isNaN(qty) && qty > 0 && dateStr) {
+                                const date = new Date(dateStr);
+                                addDeliveryLog(manageMaterial, qty, date, note);
+                                quantityInput.value = "";
+                                noteInput.value = "";
+                                toast({ title: "Delivery log added", description: `Added delivery log for ${qty} ${m?.unit} on ${date.toDateString()}` });
+                              } else {
+                                toast({ 
+                                  title: "Invalid input", 
+                                  description: "Please enter a valid date and quantity",
+                                  variant: "destructive"
+                                });
                               }
                             }}
                           >
-                            Add Log
+                            Add Entry
                           </Button>
                         </div>
                       </div>
