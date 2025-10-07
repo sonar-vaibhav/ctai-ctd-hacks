@@ -2,8 +2,8 @@ services:
   - type: web
     name: smartbuy-dashboard-api
     env: python
-    buildCommand: pip install --upgrade pip && pip install -r backend/requirements-prod.txt
-    startCommand: python backend/main.py
+    buildCommand: pip install --upgrade pip && pip install -r backend/requirements-render.txt
+    startCommand: PYTHONPATH=/opt/render/project/src/backend python backend/startup_check.py && PYTHONPATH=/opt/render/project/src/backend python backend/main.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11

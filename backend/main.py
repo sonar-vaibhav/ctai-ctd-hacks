@@ -21,6 +21,7 @@ try:
     from ml.utils.preprocessing import clean_project_data
     import pandas as pd
     ML_AVAILABLE = True
+    logging.info("ML components loaded successfully")
 except ImportError as e:
     logging.warning(f"ML components not available: {e}")
     ML_AVAILABLE = False
@@ -39,6 +40,7 @@ try:
     )
     from bson import ObjectId
     MONGODB_AVAILABLE = True
+    logging.info("MongoDB components loaded successfully")
 except ImportError as e:
     logging.warning(f"MongoDB components not available: {e}")
     MONGODB_AVAILABLE = False

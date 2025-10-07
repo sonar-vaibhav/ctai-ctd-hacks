@@ -21,6 +21,7 @@ The project uses different requirements files for different purposes:
 
 1. [requirements.txt](file:///d:/Projects/smart-buy-dash/backend/requirements.txt) - For local development with ML capabilities
 2. [requirements-prod.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-prod.txt) - For production deployment (excludes ML packages)
+3. [requirements-render.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-render.txt) - Specifically for Render deployment
 
 ### Why Separate Requirements Files?
 
@@ -33,9 +34,9 @@ The project uses different requirements files for different purposes:
 1. Fork this repository to your GitHub account
 2. Create a new Web Service on Render
 3. Connect it to your forked repository
-4. Ensure the build command uses [requirements-prod.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-prod.txt):
+4. Ensure the build command uses [requirements-render.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-render.txt):
    ```bash
-   pip install --upgrade pip && pip install -r backend/requirements-prod.txt
+   pip install --upgrade pip && pip install -r backend/requirements-render.txt
    ```
 5. Configure the following environment variables in your Render dashboard:
    - `MONGODB_CONNECTION_STRING` - Your MongoDB connection string
@@ -48,7 +49,26 @@ The project uses different requirements files for different purposes:
 
 If you encounter build failures related to pandas, ensure:
 1. You're using Python 3.11 (not 3.13)
-2. You're installing from [requirements-prod.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-prod.txt) (not [requirements.txt](file:///d:/Projects/smart-buy-dash/backend/requirements.txt))
+2. You're installing from [requirements-render.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-render.txt) (not [requirements.txt](file:///d:/Projects/smart-buy-dash/backend/requirements.txt))
+
+### Import Path Issues
+
+Render may have issues with Python import paths. The deployment configuration uses:
+```
+PYTHONPATH=/opt/render/project/src/backend python backend/main.py
+```
+
+This ensures that local modules can be imported correctly.
+
+### Startup Checks
+
+Before starting the server, a startup check script verifies:
+- Python version compatibility
+- Environment variables are set
+- Required files exist
+- Key modules can be imported
+
+If any of these checks fail, the deployment will stop and provide detailed error information.
 
 ### Alternative Solutions for ML Functionality
 
@@ -56,3 +76,13 @@ If you need ML functionality in production, consider:
 1. Using pre-compiled wheels with a constraints file
 2. Implementing a separate ML service
 3. Using cloud-based ML APIs
+
+## Debugging Deployment Issues
+
+If you're still experiencing deployment issues:
+
+1. Check the Render logs for specific error messages
+2. Verify that all environment variables are set correctly
+3. Ensure your MongoDB connection string is valid
+4. Run the [test_imports.py](file:///d:/Projects/smart-buy-dash/backend/test_imports.py) script locally to verify imports work
+5. Run the [startup_check.py](file:///d:/Projects/smart-buy-dash/backend/startup_check.py) script locally to verify all configurations

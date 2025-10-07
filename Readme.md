@@ -87,6 +87,8 @@ MONGODB_CONNECTION_STRING=mongodb://localhost:27017/
 MONGODB_DATABASE_NAME=smartbuy_dashboard
 ```
 
+For detailed MongoDB integration instructions, see [MONGODB_INTEGRATION.md](file:///d:/Projects/smart-buy-dash/MONGODB_INTEGRATION.md).
+
 ### 3. Frontend Setup (React + Vite)
 
 Open a new terminal window/tab (keep the backend running):
@@ -110,3 +112,107 @@ This project is configured for deployment on Render with separate services for f
    - `MONGODB_CONNECTION_STRING` - Your MongoDB connection string
    - `MONGODB_DATABASE_NAME` - Database name (should be `ctd`)
    - `VITE_API_URL` - The URL of your deployed backend service
+
+**Important**: The project is configured to use Python 3.11 in [render.yaml](file:///d:/Projects/smart-buy-dash/render.yaml) due to compatibility issues with pandas and other ML packages on Python 3.13. Make sure your Render service is using Python 3.11.
+
+See [DEPLOYMENT_GUIDE.md](file:///d:/Projects/smart-buy-dash/DEPLOYMENT_GUIDE.md) for detailed deployment instructions and troubleshooting.
+
+The [render.yaml](file:///d:/Projects/smart-buy-dash/render.yaml) file already contains the configuration for both services:
+- `smartbuy-dashboard-api` - The backend FastAPI service (uses [requirements-render.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-render.txt) for Render deployment)
+- `smartbuy-dashboard-frontend` - The frontend React static site
+
+### Manual Deployment
+
+If you prefer to deploy manually:
+
+#### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+python main.py
+```
+
+#### Frontend
+```bash
+cd frontend
+npm install
+npm run build
+# Serve the dist/ directory with your preferred web server
+```
+
+## API Endpoints
+
+With the backend running, you can access these endpoints:
+
+### Authentication
+- `POST /auth/register` - Register a new user
+- `POST /auth/login` - Login with existing credentials
+
+### Projects
+- `POST /projects` - Create a new project
+- `GET /projects` - Get all projects
+- `GET /projects/{project_id}` - Get a specific project
+- `PUT /projects/{project_id}` - Update a project
+- `DELETE /projects/{project_id}` - Delete a project
+
+### Vendors
+- `GET /vendors?material={material}&location={location}` - Search vendors
+- `POST /vendors/finalize/{vendor_id}` - Finalize a vendor
+- `GET /vendors/finalized` - Get all finalized vendors
+
+### Materials & Predictions
+- `GET /projects/{project_id}/materials` - Get materials for a project
+- `GET /projects/{project_id}/predictions` - Get predictions for a project
+
+
+### Backend Modules
+
+The backend is organized into:
+
+- **main.py**: Core FastAPI application with all routes
+- **database/**: MongoDB connection and CRUD operations
+- **ml/**: Machine learning models for material prediction
+- **models/**: Data models and schemas
+- **utils/**: Utility functions
+
+
+## Troubleshooting Deployment Issues
+
+### Python Version Compatibility
+
+The project uses Python 3.11 for deployment because:
+- Python 3.13 has compatibility issues with pandas 2.1.4
+- The build fails with errors related to `_PyLong_AsByteArray` function signature changes
+- Using Python 3.11 ensures successful deployment
+
+### ML Package Build Issues
+
+For deployment, we use [requirements-prod.txt](file:///d:/Projects/smart-buy-dash/backend/requirements-prod.txt) instead of [requirements.txt](file:///d:/Projects/smart-buy-dash/backend/requirements.txt) because:
+- ML packages like pandas and scikit-learn require compilation which increases build time
+- These packages often have compatibility issues with newer Python versions
+- The production backend doesn't actually need these packages for normal operation
+
+If you need ML functionality in production, see [DEPLOYMENT_GUIDE.md](file:///d:/Projects/smart-buy-dash/DEPLOYMENT_GUIDE.md) for alternative solutions.
+
+### Import Path Issues
+
+The deployment uses `PYTHONPATH` to ensure local modules can be imported correctly:
+```
+PYTHONPATH=/opt/render/project/src/backend python backend/main.py
+```
+
+### Startup Checks
+
+Before starting the server, a startup check script verifies:
+- Python version compatibility
+- Environment variables are set
+- Required files exist
+- Key modules can be imported
+
+## Contributing
+
+We welcome contributions to improve Smart Buy Dashboard! Please fork the repository and submit pull requests with your enhancements.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
