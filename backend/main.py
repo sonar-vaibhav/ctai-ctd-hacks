@@ -34,7 +34,7 @@ try:
     from database.crud import (
         create_project, get_project, get_all_projects, update_project, delete_project,
         create_material, get_materials_by_project,
-        create_vendor, get_vendor, search_vendors_by_material, get_vendors_by_project,
+        create_vendor, get_vendor, search_vendors_by_material, get_vendors_by_project, update_vendor,
         create_prediction, get_predictions_by_project,
         get_user_by_username, get_user_by_email, create_user, update_user_last_login
     )
@@ -98,6 +98,17 @@ if ML_AVAILABLE:
 else:
     ml_predictor = None
     logger.warning("ML predictor not available")
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "mongodb_available": MONGODB_AVAILABLE,
+        "ml_available": ML_AVAILABLE,
+        "python_version": sys.version,
+    }
 
 # Pydantic models for request/response
 class ProjectRequest(BaseModel):
@@ -750,42 +761,69 @@ async def get_api_documentation():
 
 
 # MongoDB Project Management Endpoints
-@app.post("/projects")
-async def create_project_endpoint(project_data: ProjectRequest):
-    """Create a new project in MongoDB"""
-    try:
-        # Convert ProjectRequest to ProjectModel
-        project_model = ProjectModel(
-            name=f"{project_data.projectType} Project",
-            project_type=project_data.projectType,
-            size=project_data.size,
-            state=project_data.state,
-            city=project_data.city,
-            volume=int(project_data.volume),
-            status="active",
-            is_predicted=False
-        )
-        
-        # Save to MongoDB
-        created_project = create_project(project_model)
-        
-        return {
-            "success": True,
-            "project_id": str(created_project.id),
-            "message": "Project created successfully"
-        }
-    except Exception as e:
-        logger.error(f"Error creating project: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+if MONGODB_AVAILABLE:
+    @app.post("/projects")
+    async def create_project_endpoint(project_data: ProjectRequest):
+        """Create a new project in MongoDB"""
+        try:
+            # Convert ProjectRequest to ProjectModel
+            project_model = ProjectModel(
+                name=f"{project_data.projectType} Project",
+                project_type=project_data.projectType,
+                size=project_data.size,
+                state=project_data.state,
+                city=project_data.city,
+                volume=int(project_data.volume),
+                status="active",
+                is_predicted=False
+            )
+            
+            # Save to MongoDB
+            created_project = create_project(project_model)
+            
+            return {
+                "success": True,
+                "project_id": created_project.id,  # This is now a string
+                "message": "Project created successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error creating project: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/projects")
-async def get_all_projects_endpoint():
-    """Get all projects from MongoDB"""
-    try:
-        projects = get_all_projects()
-        return [
-            {
-                "id": str(project.id),
+    @app.get("/projects")
+    async def get_all_projects_endpoint():
+        """Get all projects from MongoDB"""
+        try:
+            projects = get_all_projects()
+            return [
+                {
+                    "id": project.id,  # This is now a string
+                    "name": project.name,
+                    "project_type": project.project_type,
+                    "size": project.size,
+                    "state": project.state,
+                    "city": project.city,
+                    "volume": project.volume,
+                    "status": project.status,
+                    "is_predicted": project.is_predicted,
+                    "created_at": project.created_at
+                }
+                for project in projects
+            ]
+        except Exception as e:
+            logger.error(f"Error fetching projects: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/projects/{project_id}")
+    async def get_project_endpoint(project_id: str):
+        """Get a specific project from MongoDB"""
+        try:
+            project = get_project(project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            return {
+                "id": project.id,  # This is now a string
                 "name": project.name,
                 "project_type": project.project_type,
                 "size": project.size,
@@ -796,307 +834,299 @@ async def get_all_projects_endpoint():
                 "is_predicted": project.is_predicted,
                 "created_at": project.created_at
             }
-            for project in projects
-        ]
-    except Exception as e:
-        logger.error(f"Error fetching projects: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching project: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/projects/{project_id}")
-async def get_project_endpoint(project_id: str):
-    """Get a specific project from MongoDB"""
-    try:
-        project = get_project(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        return {
-            "id": str(project.id),
-            "name": project.name,
-            "project_type": project.project_type,
-            "size": project.size,
-            "state": project.state,
-            "city": project.city,
-            "volume": project.volume,
-            "status": project.status,
-            "is_predicted": project.is_predicted,
-            "created_at": project.created_at
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching project: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Save Prediction Results to MongoDB
-@app.post("/projects/{project_id}/predictions")
-async def save_prediction_endpoint(project_id: str, prediction: PredictionResponse):
-    """Save prediction results to MongoDB"""
-    try:
-        # Verify project exists
-        project = get_project(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Convert materials to MaterialModel objects (embedded within prediction)
-        material_models = []
-        for material in prediction.materials:
-            material_model = MaterialModel(
-                project_id=ObjectId(project_id),
-                name=material.name,
-                category=material.category,
-                quantity=material.quantity,
-                unit=material.unit,
-                cost=material.cost,
+    # Save Prediction Results to MongoDB
+    @app.post("/projects/{project_id}/predictions")
+    async def save_prediction_endpoint(project_id: str, prediction: PredictionResponse):
+        """Save prediction results to MongoDB"""
+        try:
+            # Verify project exists
+            project = get_project(project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            # Convert materials to MaterialModel objects (embedded within prediction)
+            material_models = []
+            for material in prediction.materials:
+                material_model = MaterialModel(
+                    project_id=project_id,  # Use string ID
+                    name=material.name,
+                    category=material.category,
+                    quantity=material.quantity,
+                    unit=material.unit,
+                    cost=material.cost,
+                    confidence=prediction.confidence
+                )
+                material_models.append(material_model)
+            
+            # Create PredictionModel
+            prediction_model = PredictionModel(
+                project_id=project_id,  # Use string ID
+                materials=material_models,
+                total_cost=prediction.total_cost,
                 confidence=prediction.confidence
             )
-            material_models.append(material_model)
-        
-        # Create PredictionModel
-        prediction_model = PredictionModel(
-            project_id=ObjectId(project_id),
-            materials=material_models,
-            total_cost=prediction.total_cost,
-            confidence=prediction.confidence
-        )
-        
-        # Save prediction to MongoDB
-        created_prediction = create_prediction(prediction_model)
-        
-        # Update project's is_predicted flag
-        update_project(project_id, {"is_predicted": True})
-        
-        return {
-            "success": True,
-            "prediction_id": str(created_prediction.id),
-            "message": "Prediction saved successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error saving prediction: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+            
+            # Save prediction to MongoDB
+            created_prediction = create_prediction(prediction_model)
+            
+            # Update project's is_predicted flag
+            update_project(project_id, {"is_predicted": True})
+            
+            return {
+                "success": True,
+                "prediction_id": created_prediction.id,  # This is now a string
+                "message": "Prediction saved successfully"
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error saving prediction: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-# Get Prediction Results from MongoDB
-@app.get("/projects/{project_id}/predictions")
-async def get_predictions_endpoint(project_id: str):
-    """Get prediction results from MongoDB"""
-    try:
-        # Verify project exists
-        project = get_project(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Get predictions from MongoDB
-        predictions = get_predictions_by_project(project_id)
-        
-        if not predictions:
-            return []
-        
-        # Return the most recent prediction
-        latest_prediction = predictions[-1]  # Assuming sorted by creation date
-        
-        # Get vendors for this project to check assignments
-        project_vendors = get_vendors_by_project(project_id)
-        
-        # Create a map of material name to vendor details
-        material_vendor_map = {}
-        for vendor in project_vendors:
-            if vendor.material_name:
-                # Convert vendor to JSON-serializable format
-                vendor_dict = vendor.dict(by_alias=True)
-                if '_id' in vendor_dict:
-                    vendor_dict['_id'] = str(vendor_dict['_id'])
-                if 'project_id' in vendor_dict and vendor_dict['project_id']:
-                    vendor_dict['project_id'] = str(vendor_dict['project_id'])
-                if 'material_id' in vendor_dict and vendor_dict['material_id']:
-                    vendor_dict['material_id'] = str(vendor_dict['material_id'])
-                material_vendor_map[vendor.material_name] = vendor_dict
-        
-        return {
-            "success": True,
-            "materials": [
-                {
-                    "id": str(material.id),
-                    "name": material.name,
-                    "category": material.category,
-                    "quantity": material.quantity,
-                    "unit": material.unit,
-                    "cost": material.cost,
-                    "vendorAssigned": material_vendor_map.get(material.name)  # Add complete vendor assignment info
+    # Get Prediction Results from MongoDB
+    @app.get("/projects/{project_id}/predictions")
+    async def get_predictions_endpoint(project_id: str):
+        """Get prediction results from MongoDB"""
+        try:
+            # Verify project exists
+            project = get_project(project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            # Get predictions from MongoDB
+            predictions = get_predictions_by_project(project_id)
+            
+            if not predictions:
+                return {
+                    "success": True,
+                    "materials": [],
+                    "total_cost": 0,
+                    "confidence": 0
                 }
-                for material in latest_prediction.materials
-            ],
-            "total_cost": latest_prediction.total_cost,
-            "confidence": latest_prediction.confidence
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching predictions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+            
+            # Return the most recent prediction
+            latest_prediction = predictions[-1]  # Assuming sorted by creation date
+            
+            # Get vendors for this project to check assignments
+            project_vendors = get_vendors_by_project(project_id)
+            
+            # Create a map of material name to vendor details
+            material_vendor_map = {}
+            for vendor in project_vendors:
+                if vendor.material_name:
+                    # Convert vendor to JSON-serializable format
+                    vendor_dict = vendor.dict(by_alias=True)
+                    # All IDs are already strings now
+                    material_vendor_map[vendor.material_name] = vendor_dict
+            
+            response_data = {
+                "success": True,
+                "materials": [
+                    {
+                        "id": material.id,  # This is now a string
+                        "name": material.name,
+                        "category": material.category,
+                        "quantity": material.quantity,
+                        "unit": material.unit,
+                        "cost": material.cost,
+                        "vendorAssigned": material_vendor_map.get(material.name)  # Add complete vendor assignment info
+                    }
+                    for material in latest_prediction.materials
+                ],
+                "total_cost": latest_prediction.total_cost,
+                "confidence": latest_prediction.confidence
+            }
+            logger.info(f"Returning prediction data for project {project_id}: {len(response_data['materials'])} materials")
+            return response_data
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching predictions: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-# Get vendors associated with a specific project
-@app.get("/projects/{project_id}/vendors")
-async def get_project_vendors(project_id: str, material_name: str = None):
-    """Get vendors associated with a specific project, optionally filtered by material"""
-    try:
-        # Verify project exists
-        project = get_project(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Get vendors from MongoDB
-        vendors = get_vendors_by_project(project_id, material_name)
-        
-        # Convert to JSON-serializable format
-        vendors_json = []
-        for vendor in vendors:
-            vendor_dict = vendor.dict(by_alias=True)
-            # Convert ObjectId to string for JSON serialization
-            if '_id' in vendor_dict:
-                vendor_dict['_id'] = str(vendor_dict['_id'])
-            if 'project_id' in vendor_dict and vendor_dict['project_id']:
-                vendor_dict['project_id'] = str(vendor_dict['project_id'])
-            if 'material_id' in vendor_dict and vendor_dict['material_id']:
-                vendor_dict['material_id'] = str(vendor_dict['material_id'])
-            vendors_json.append(vendor_dict)
-        
-        return vendors_json
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error fetching project vendors: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Get vendors associated with a specific project
+    @app.get("/projects/{project_id}/vendors")
+    async def get_project_vendors(project_id: str, material_name: str = None):
+        """Get vendors associated with a specific project, optionally filtered by material"""
+        try:
+            # Verify project exists
+            project = get_project(project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            # Get vendors from MongoDB
+            vendors = get_vendors_by_project(project_id, material_name)
+            
+            # Convert to JSON-serializable format
+            vendors_json = []
+            for vendor in vendors:
+                vendor_dict = vendor.dict(by_alias=True)
+                # All IDs are already strings now
+                vendors_json.append(vendor_dict)
+            
+            return vendors_json
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching project vendors: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/auth/login")
-async def login_user(credentials: UserLogin):
-    """Login user"""
-    try:
-        # Get user by username
-        user = get_user_by_username(credentials.username)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        # Verify password (plain text comparison for simplicity)
-        if credentials.password != user.password:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        return {
-            "success": True,
-            "user": {
-                "id": str(user.id),
-                "username": user.username
-            },
-            "message": "Login successful"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error logging in user: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    @app.post("/auth/login")
+    async def login_user(credentials: UserLogin):
+        """Login user"""
+        try:
+            # Get user by username
+            user = get_user_by_username(credentials.username)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+            # Verify password (plain text comparison for simplicity)
+            if credentials.password != user.password:
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+            return {
+                "success": True,
+                "user": {
+                    "id": user.id,  # This is now a string
+                    "username": user.username
+                },
+                "message": "Login successful"
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error logging in user: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-# Save Vendor Data to MongoDB
-@app.post("/vendors/save")
-async def save_vendor_endpoint(vendor_data: dict):
-    """Save vendor data to MongoDB with project and material associations"""
-    try:
-        # Extract project and material information if provided
-        project_id = vendor_data.get('project_id')
-        material_id = vendor_data.get('material_id')
-        material_name = vendor_data.get('material_name')
-        
-        # Convert dict to VendorModel
-        vendor_model = VendorModel(
-            project_id=ObjectId(project_id) if project_id else None,
-            material_id=ObjectId(material_id) if material_id else None,
-            material_name=material_name,
-            name=vendor_data.get('name'),
-            website=vendor_data.get('website'),
-            rating=vendor_data.get('rating'),
-            rating_count=vendor_data.get('rating_count'),
-            item_name=vendor_data.get('item_name'),
-            item_price=vendor_data.get('item_price'),
-            item_unit=vendor_data.get('item_unit'),
-            gst_verified=vendor_data.get('gst_verified', False),
-            trustseal_verified=vendor_data.get('trustseal_verified', False),
-            member_since=vendor_data.get('member_since'),
-            location=vendor_data.get('location'),
-            contact=vendor_data.get('contact'),
-            email=vendor_data.get('email')
-        )
-        
-        # Save to MongoDB
-        created_vendor = create_vendor(vendor_model)
-        
-        return {
-            "success": True,
-            "vendor_id": str(created_vendor.id),
-            "message": "Vendor saved successfully"
-        }
-    except Exception as e:
-        logger.error(f"Error saving vendor: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Save Vendor Data to MongoDB
+    @app.post("/vendors/save")
+    async def save_vendor_endpoint(vendor_data: dict):
+        """Save vendor data to MongoDB with project and material associations"""
+        try:
+            # Extract project and material information if provided
+            project_id = vendor_data.get('project_id')
+            material_id = vendor_data.get('material_id')
+            material_name = vendor_data.get('material_name')
+            
+            # Convert dict to VendorModel
+            vendor_model = VendorModel(
+                project_id=project_id,  # Use string ID
+                material_id=material_id,  # Use string ID
+                material_name=material_name,
+                name=vendor_data.get('name'),
+                website=vendor_data.get('website'),
+                rating=vendor_data.get('rating'),
+                rating_count=vendor_data.get('rating_count'),
+                item_name=vendor_data.get('item_name'),
+                item_price=vendor_data.get('item_price'),
+                item_unit=vendor_data.get('item_unit'),
+                gst_verified=vendor_data.get('gst_verified', False),
+                trustseal_verified=vendor_data.get('trustseal_verified', False),
+                member_since=vendor_data.get('member_since'),
+                location=vendor_data.get('location'),
+                contact=vendor_data.get('contact'),
+                email=vendor_data.get('email')
+            )
+            
+            # Save to MongoDB
+            created_vendor = create_vendor(vendor_model)
+            
+            return {
+                "success": True,
+                "vendor_id": created_vendor.id,  # This is now a string
+                "message": "Vendor saved successfully"
+            }
+        except Exception as e:
+            logger.error(f"Error saving vendor: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-# Update vendor information
-@app.patch("/vendors/{vendor_id}")
-async def update_vendor_endpoint(vendor_id: str, vendor_data: dict):
-    """Update vendor information"""
-    try:
-        # Update vendor in MongoDB
-        success = update_vendor(vendor_id, vendor_data)
-        
-        if success:
-            return {"message": "Vendor updated successfully"}
-        else:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-    except Exception as e:
-        logger.error(f"Error updating vendor: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Update vendor information
+    @app.patch("/vendors/{vendor_id}")
+    async def update_vendor_endpoint(vendor_id: str, vendor_data: dict):
+        """Update vendor information"""
+        try:
+            # Update vendor in MongoDB
+            success = update_vendor(vendor_id, vendor_data)
+            
+            if success:
+                return {"message": "Vendor updated successfully"}
+            else:
+                raise HTTPException(status_code=404, detail="Vendor not found")
+        except Exception as e:
+            logger.error(f"Error updating vendor: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-# Finalize a vendor
-@app.post("/vendors/finalize/{vendor_id}")
-async def finalize_vendor_endpoint(vendor_id: str):
-    """Finalize a vendor"""
-    try:
-        # Update vendor's finalized status in MongoDB
-        success = update_vendor(vendor_id, {"finalized": True})
-        
-        if success:
-            return {"message": "Vendor finalized successfully"}
-        else:
-            raise HTTPException(status_code=404, detail="Vendor not found")
-    except Exception as e:
-        logger.error(f"Error finalizing vendor: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Finalize a vendor
+    @app.post("/vendors/finalize/{vendor_id}")
+    async def finalize_vendor_endpoint(vendor_id: str):
+        """Finalize a vendor"""
+        try:
+            # Update vendor's finalized status in MongoDB
+            success = update_vendor(vendor_id, {"finalized": True})
+            
+            if success:
+                return {"message": "Vendor finalized successfully"}
+            else:
+                raise HTTPException(status_code=404, detail="Vendor not found")
+        except Exception as e:
+            logger.error(f"Error finalizing vendor: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-# Update material with vendor assignment
-@app.patch("/projects/{project_id}/materials/{material_id}/assign-vendor")
-async def assign_vendor_to_material(project_id: str, material_id: str, vendor_id: str):
-    """Assign a vendor to a material"""
-    try:
-        # Verify project exists
-        project = get_project(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Verify material exists and belongs to project
-        material = get_material_by_id(material_id)
-        if not material or str(material.project_id) != project_id:
-            raise HTTPException(status_code=404, detail="Material not found")
-        
-        # Update material with vendor assignment
-        success = update_material_with_vendor(material_id, vendor_id)
-        
-        if success:
-            return {"message": "Vendor assigned to material successfully"}
-        else:
-            raise HTTPException(status_code=404, detail="Material not found or not updated")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error assigning vendor to material: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Update material with vendor assignment
+    @app.patch("/projects/{project_id}/materials/{material_id}/assign-vendor")
+    async def assign_vendor_to_material(project_id: str, material_id: str, vendor_id: str):
+        """Assign a vendor to a material"""
+        try:
+            # Verify project exists
+            project = get_project(project_id)
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            # Verify material exists and belongs to project
+            material = get_material_by_id(material_id)
+            if not material or material.project_id != project_id:
+                raise HTTPException(status_code=404, detail="Material not found")
+            
+            # Update material with vendor assignment
+            success = update_material_with_vendor(material_id, vendor_id)
+            
+            if success:
+                return {"message": "Vendor assigned to material successfully"}
+            else:
+                raise HTTPException(status_code=404, detail="Material not found or not updated")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error assigning vendor to material: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+# Add fallback endpoints when MongoDB is not available
+if not MONGODB_AVAILABLE:
+    @app.get("/projects")
+    async def get_projects_fallback():
+        """Fallback endpoint when MongoDB is not available"""
+        return []
+    
+    @app.post("/projects")
+    async def create_project_fallback(project_data: ProjectRequest):
+        """Fallback endpoint when MongoDB is not available"""
+        return {"success": False, "message": "Database not available"}
+    
+    @app.get("/projects/{project_id}")
+    async def get_project_fallback(project_id: str):
+        """Fallback endpoint when MongoDB is not available"""
+        raise HTTPException(status_code=404, detail="Database not available")
+    
+    @app.get("/vendors/finalized")
+    async def get_finalized_vendors_fallback():
+        """Fallback endpoint when MongoDB is not available"""
+        return []
 
 if __name__ == "__main__":
     import uvicorn

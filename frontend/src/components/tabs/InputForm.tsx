@@ -81,15 +81,13 @@ export function InputForm({ project, onPredictionComplete }: InputFormProps) {
       const result = await apiService.predictMaterials(formData);
 
       if (result.success) {
-        // Save prediction to MongoDB for the existing project
-        await apiService.savePrediction(project.id, result);
-        
         toast({
           title: "Prediction Complete",
           description: `Analysis generated for ${formData.projectType}. Found ${result.materials.length} materials with ₹${(result.total_cost / 10000000).toFixed(2)} Cr total cost.`,
         });
 
         // Trigger prediction completion callback with actual data
+        // The prediction is saved to MongoDB in the parent component's handler
         if (onPredictionComplete) {
           onPredictionComplete(result);
         }

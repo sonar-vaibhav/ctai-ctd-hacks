@@ -208,7 +208,6 @@ class ApiService {
   // Get vendors associated with a specific project
   async getProjectVendors(projectId: string, materialName?: string): Promise<Vendor[]> {
     const searchParams = new URLSearchParams();
-    searchParams.append('project_id', projectId);
     if (materialName) {
       searchParams.append('material_name', materialName);
     }
