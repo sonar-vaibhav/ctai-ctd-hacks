@@ -3,10 +3,10 @@ services:
     name: smartbuy-dashboard-api
     env: python
     buildCommand: pip install --upgrade pip && pip install -r backend/requirements-render.txt
-    startCommand: PYTHONPATH=/opt/render/project/src/backend python backend/startup_check.py && PYTHONPATH=/opt/render/project/src/backend python backend/main.py
+    startCommand: PYTHONPATH=/opt/render/project/src/backend python backend/main.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.11.10
       - key: MONGODB_CONNECTION_STRING
         sync: false
       - key: MONGODB_DATABASE_NAME

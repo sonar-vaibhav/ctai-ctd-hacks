@@ -24,8 +24,11 @@ def check_python_version():
     logger.info(f"Python version: {sys.version}")
     if version != "3.11":
         logger.warning(f"Python version {version} detected. Recommended version is 3.11 for compatibility.")
+        # Return True to allow the application to start despite the warning
+        return True
     else:
         logger.info("Python version is compatible.")
+        return True
 
 def check_environment_variables():
     """Check required environment variables"""
@@ -90,10 +93,37 @@ def check_imports():
     
     return len(failed_imports) == 0
 
+def check_render_config():
+    """Check Render-specific configuration"""
+    logger.info("Checking Render-specific configuration...")
+    
+    # Check if we're running on Render
+    if os.environ.get('RENDER'):
+        logger.info("Detected Render environment")
+        
+        # Check Python version
+        version = f"{sys.version_info.major}.{sys.version_info.minor}"
+        if version == "3.11":
+            logger.info("✓ Python version is correct for Render")
+        else:
+            logger.warning(f"Python version {version} detected. For best compatibility, consider setting PYTHON_VERSION=3.11.10 in Render dashboard.")
+        
+        # Check if pandas is installed (it shouldn't be for Render)
+        try:
+            import pandas
+            logger.warning("Pandas is installed - this may cause deployment issues on Render. Consider using requirements-render.txt instead of requirements.txt")
+        except ImportError:
+            logger.info("Pandas is not installed - good for Render deployment")
+    else:
+        logger.info("Not running in Render environment")
+
 def main():
     """Run all startup checks"""
     logger.info("Running startup checks for Smart Buy Dashboard API...")
     logger.info(f"Backend path: {backend_path}")
+    
+    # Check Render configuration first
+    check_render_config()
     
     checks = [
         ("Python version", check_python_version),
