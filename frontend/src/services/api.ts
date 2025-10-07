@@ -101,7 +101,6 @@ class ApiService {
     };
 
     try {
-      console.log(`API Request: ${options.method || 'GET'} ${url}`);
       const response = await fetch(url, { ...defaultOptions, ...options });
       
       if (!response.ok) {

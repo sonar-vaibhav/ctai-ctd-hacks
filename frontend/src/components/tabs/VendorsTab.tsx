@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, MapPin, Mail, Phone, Star, MessageCircle, CheckCircle2, Loader2, RefreshCw, Award, Shield, Clock, ExternalLink, Verified, Eye } from "lucide-react";
+import { Search, MapPin, Mail, Phone, Star, MessageCircle, CheckCircle2, Loader2, RefreshCw, Award, Shield, Clock, ExternalLink, Verified, Eye, Copy, Send } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -432,34 +432,7 @@ export function VendorsTab({ project, showPredictionResults = false, predictionD
                 className="pl-10"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={selectedMaterial === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedMaterial("all")}
-              >
-                All Materials
-              </Button>
-              {materialTypes.slice(0, 4).map((material, index) => (
-                <Button
-                  key={`material-filter-${material}-${index}`}
-                  variant={selectedMaterial === material ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedMaterial(material)}
-                  className="hidden sm:inline-flex"
-                >
-                  {material}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refreshVendorData}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Refresh
-              </Button>
-            </div>
+            
           </div>
         </CardContent>
       </Card>
@@ -771,20 +744,145 @@ export function VendorsTab({ project, showPredictionResults = false, predictionD
 
       {/* Contact Vendor Modal */}
       <Dialog open={!!contactVendor} onOpenChange={(open) => !open && setContactVendor(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {contactVendor && (
             <>
               <DialogHeader>
                 <DialogTitle>Contact {contactVendor.vendor}</DialogTitle>
-                <DialogDescription>Send a message or view contact details</DialogDescription>
+                <DialogDescription>View vendor details and contact information</DialogDescription>
               </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {contactVendor.location}</div>
-                <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {contactVendor.contact}</div>
-                <div className="flex items-center gap-2"><Mail className="h-4 w-4" /> {contactVendor.email}</div>
+              <div className="space-y-4 py-2">
+                {/* Vendor Name and Item */}
+                <div className="space-y-2">
+                  <h3 className="font-medium">{contactVendor.vendor}</h3>
+                  {contactVendor.item_name && (
+                    <p className="text-sm text-muted-foreground">{contactVendor.item_name}</p>
+                  )}
+                </div>
+                
+                {/* Verification Badges */}
+                <div className="flex flex-wrap gap-2">
+                  {contactVendor.gst_verified && (
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                      <Shield className="h-3 w-3 mr-1" />
+                      GST Verified
+                    </Badge>
+                  )}
+                  {contactVendor.trustseal_verified && (
+                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                      <Verified className="h-3 w-3 mr-1" />
+                      TrustSEAL
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Rating */}
+                {contactVendor.rating && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <div className="flex items-center">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i < Math.floor(parseFloat(contactVendor.rating || '0'))
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium">{contactVendor.rating}</span>
+                    {contactVendor.rating_count && (
+                      <span className="text-xs text-muted-foreground">({contactVendor.rating_count})</span>
+                    )}
+                  </div>
+                )}
+                
+                {/* Member Since */}
+                {contactVendor.member_since && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>Member since {contactVendor.member_since}</span>
+                  </div>
+                )}
+                
+                {/* Price Information */}
+                {contactVendor.item_price && (
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Price</span>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-primary">
+                          ₹{contactVendor.item_price}
+                        </div>
+                        {contactVendor.item_unit && (
+                          <div className="text-xs text-muted-foreground">
+                            {contactVendor.item_unit}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Contact Information */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="font-medium text-sm">Contact Information</h4>
+                  <div className="space-y-2">
+                    {contactVendor.location && (
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <span className="text-sm">{contactVendor.location}</span>
+                      </div>
+                    )}
+                    {contactVendor.contact && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-mono">{contactVendor.contact}</span>
+                      </div>
+                    )}
+                    {contactVendor.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm break-all">{contactVendor.email}</span>
+                      </div>
+                    )}
+                    {contactVendor.vendor_website && (
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        <button 
+                          className="text-sm text-primary hover:underline"
+                          onClick={() => window.open(contactVendor.vendor_website, '_blank')}
+                        >
+                          Visit Website
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="pt-2">
-                <Button className="w-full" onClick={() => { toast({ title: "Contacted", description: `Email sent to ${contactVendor.email}` }); setContactVendor(null); }}>Send Email</Button>
+              <div className="pt-4 flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    navigator.clipboard.writeText(contactVendor.email || contactVendor.contact || '');
+                    toast({ title: "Copied", description: "Contact information copied to clipboard" });
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+                <Button 
+                  className="flex-1"
+                  onClick={() => { 
+                    toast({ title: "Contacted", description: `Contact request sent to ${contactVendor.vendor}` }); 
+                    setContactVendor(null);
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Message
+                </Button>
               </div>
             </>
           )}
